@@ -1,0 +1,2527 @@
+\chapter{Rules without Data}
+\label{chapter:ltl-translation}
+
+In this chapter,
+we develop techniques for automatically generating monitors
+to detect violations of rule without data.
+This approach involves two steps, translating:
+(1) dataless rules to formulas in linear temporal logic (LTL) on finite traces,
+and
+(2) LTL formulas to finite state machines.
+Since algorithms exist for step (2) \cite{vardi1986automata,laroussinie2002temporal,gastin2003ltl},
+we focus on step (1),
+i.e., mapping rules to equivalent LTL formulas.
+Then,
+a finite state machine can process an enactment incrementally
+and report whether or not the enactment is a prefix in the machine's language.
+% Then, if for a given set of dataless rules,
+% there is an equivalent finite state machine,
+% this machine can detect violations at the earliest possible time.
+Kamp's Theorem \cite{kamp1968tense} implies that each dataless rule has an equivalent LTL formula.
+A recent proof of Kamp's Theorem \cite{rabinovich2014proof}
+provides key pieces of a translation algorithm,
+though it produces formulas hyper-exponential in the size of the input rule.
+We present and establish the correctness of two translation techniques 
+for ``singly-linked'', dataless rules.
+In the first, we use a graph representation
+for a recursive translation of ``acyclic'', singly-linked, dataless rules.
+In the second translation,
+we use ordering constraints on timestamp variables
+resembling those in \cite{rabinovich2014proof}
+to translate singly-linked, dataless rules.
+The second translation covers a larger class of rules,
+but produces larger LTL formulas.
+Finally,
+we provide bounds for the size of formulas produced by our techniques
+and show that they are smaller than those produced by the translation in \cite{rabinovich2014proof}.
+
+The organization of this chapter is as follows:
+Section\:\ref{sec:motiv-finite-state}
+motivates our approach to violation detection for dataless rules with an example.
+Section\:\ref{sec:dataless-model-ltl}
+presents the LTL language used for translation
+and the notion of equivalence between LTL formulas and dataless rules.
+Section\:\ref{sec:mapping} presents
+our translation techniques first for gap atoms,
+then for singly-linked, acyclic rules,
+and proves their correctness.
+Section\:\ref{sec:all-order-translation}
+extends them to arbitrary singly-linked rules.
+Finally,
+Section\:\ref{sec:comparison}
+compares the size of formulas produced by our translation
+with a translation derived from Kamp's Theorem
+and covers related work.
+
+\section{Monitoring with Finite State Machines}
+\label{sec:motiv-finite-state}
+
+First we motivate our approach
+by showing how a finite state machine
+can monitor an enactment for a given rule.
+
+\begin{examp}\label{example-prompt-schedule}
+  Consider an
+  Infrastructure-as-a-Service (IaaS) provider that
+  rents commodity servers
+  to clients as a service.
+  The service is performed
+  by processes (in the typewriter font),
+  some initiated by clients,
+  others by the service provider,
+  including the following:
+  a client may \Request\ access
+  by providing a description of their desired machine(s)
+  and
+  the provider uses the \Schedule\ process
+  to reserve a specific machine.
+  The completion of a process generates an event of the same name,
+  along with a timestamp.
+  The service includes a business rule {\PromptSchedule} to ensure service
+  quality:
+  \begin{quote}
+  \em If a {\Request} arrives,
+    a {\Schedule} instance must
+    be completed on the same day
+    or in the next three days.
+  \end{quote}
+  This rule can be specified as:
+  $$
+  {\Request}@x ~\rightarrow~ {\Schedule}@y,~ x \leq y,~ y \leq x+3
+  $$
+  where $@x$ and $@y$ indicate time instants {\Request} and {\Schedule}
+  were performed, respectively.
+
+\begin{figure}\centering
+\begin{tikzpicture}[->,>=stealth',shorten >=1pt,auto,node distance=2cm, scale = .75,transform shape]
+
+  \node[state,initial,accepting] (1) {$1$};
+  \node[state] (2) [right of=1] {$2$};
+  \node[state] (3) [right of=2] {$3$};
+  \node[state] (4) [right of=3] {$4$};
+  \node[state] (5) [right of=4] {$5$};
+
+  \path (1) edge [loop below] node {$\{\},\{S\}, \{R,S\}$} (1)
+        (1) edge                node {$\{R\}$} (2)
+        (2) edge [loop above, looseness = 0.3, pos=0.3]                node {$\{S\}, \{R,S\}$} (1)
+        (2) edge                node {$\{\}, \{R\}$} (3)
+        
+        (3) edge                node {$\{\},\{R\}$} (4)
+        (3) edge [loop above, looseness = 1, pos=0.4]                node {$\{S\},\{R,S\}$} (1)
+
+        (4) edge              node {$\{\},\{R\}$} (5)
+        (4) edge [loop above, looseness = 1.3]             node {$\{S\},\{R,S\}$} (1)
+        
+        (5) edge [loop below] node {$\{\},\{R\},\{S\},\{R,S\}$} (5);
+        
+    \node[text width=3cm] at (7.6,-0.65) {};
+
+\end{tikzpicture}
+\caption{A finite state machine for the {\PromptSchedule} rule}
+    \label{fig:promptschedule}
+\end{figure}
+
+  The finite state machine
+  in Fig.\:\ref{fig:promptschedule}
+  monitors this rule.
+  The machine transitions once per day,
+  changing state based on the events
+  observed in the enactment in the previous day.
+  The machine's alphabet is the powerset of the rule's event types:
+  {\Request} ($R$) and {\Schedule} ($S$).
+  The start state (node 1)
+  is accepting because initially no {\Request}
+  requiring a subsequent {\Schedule} has been observed.
+  The machine moves from state 1 to state 2
+  when {\Request} takes place
+  without a simultaneous {\Schedule}.
+  From state 2, for each subsequent day
+  that {\Schedule} doesn't occur,
+  the machine progresses through
+  states 3 and 4,
+  implicitly counting the number of days
+  since the unmatched {\Request}.
+  Although the rule 
+  has not been permanently violated
+  in states 2, 3, or 4,
+  these states are not accepting
+  because no matching {\Schedule} event
+  has been observed;
+  the distinction between an enactment
+  permanently or temporarily violating a rule
+  is necessary for reasoning about when to report violations.
+  If a matching {\Schedule} event
+  occurs from states 3 and 4,
+  all recent (within 3 days) {\Request} events are matched and
+  the machine moves to state 1.
+  If the machine is in state 4 and
+  the following day fails to contain a {\Schedule},
+  the machine enters the sink state 5,
+  as the enactment has violated {\PromptSchedule}.
+\end{examp}
+
+In the subsequent technical development of this chapter,
+we translate dataless rules
+to LTL with past operators for finite traces.
+LTL can be converted into
+finite state machines using existing algorithms
+\cite{vardi1986automata,laroussinie2002temporal},
+which can be used for violation detection.
+Accordingly,
+violation detection requires simply transitioning
+a finite state machine---a much simplified task.
+To proactively avoid violations,
+it is sufficient to check the reachability of accepting states
+from the current state.
+To monitor a given set of rules,
+one constructs a product machine using the machine from each rule.
+Summarizing the above discussions,
+Our central technical problem
+is the following:
+{\em
+Given a dataless rule for an enactment,
+construct an equivalent LTL formula.}
+
+\section{Dataless Enactments and Linear Temporal Logic}
+\label{sec:dataless-model-ltl}
+  
+The section
+describes how the enactments
+can be mapped to LTL traces.
+First, we introduce the model of events without data.
+Then, we review the syntax and semantics of
+a past- and future-time linear temporal logic
+on finite traces.
+Finally, we discuss the notion of equivalence
+between dataless rules and LTL formulas
+needed to state the correctness of a translation.
+  
+\smallskip
+  
+We focus on time gaps between events,
+ignoring other data:
+each event is represented only by its name and a timestamp.
+Thus, an enactment can be faithfully represented
+by a set of unary relations over the domain of timestamps.
+  
+\begin{figure}[ht]
+  \centering
+  \begin{tabular}[t]{|c|c|c|c|}
+    \multicolumn{4}{c}{\Request}\\\hline
+    \it iid & \it\#machines & \it timestamp & ...\\\hline
+    000 & 5 & 2023-01-01 & \\
+    001 & 5 & 2023-01-06 &\\
+    002 & 10 & 2023-01-25 & \\
+    003 & 5 & 2023-01-30 & \\
+      ...  &&&\\\hline
+  \end{tabular}\hspace*{0.2cm}
+  \begin{tabular}[t]{|c|c|c|c|}
+    \multicolumn{4}{c}{\Schedule}\\\hline
+    \it iid & \it machine & \it timestamp & ...\\\hline
+    100 & 445 & 2023-01-03 &\\
+    101 & 446 & 2023-01-04 &\\
+    102 & 447 & 2023-01-06 &\\
+    103 & 447 & 2023-02-11 &\\
+  
+    ... &&&\\\hline
+  \end{tabular}
+  \begin{tabular}[t]{|c|c|c|c|}
+    \multicolumn{4}{c}{\Compute}\\\hline
+    \it iid & \it machine & \it timestamp & ... \\\hline
+    400 & 445    & 2023-01-05 &\\
+    401 & 445   & 2023-01-18 &\\
+    ... &&&\\\hline
+  \end{tabular}\hspace*{0.2cm}
+  \begin{tabular}[t]{|c|c|c|c|}
+    \multicolumn{4}{c}{\Payment}\\\hline
+    \it iid & \it amount & \it timestamp & ... \\\hline
+    500 & \$150    & 2023-01-15 &\\
+    501 & \$155   & 2023-01-30 &\\
+    ... &&&\\\hline
+  \end{tabular}\hspace*{0.2cm}
+  \caption{Events with data generated by four activities.}
+  \label{fig:rent_me_event_stream}
+  \end{figure}
+
+\begin{examp}\label{ex:dataless-RentMe}
+  Timestamps in our model are given as the number of days into the year 2023
+  in Fig.\:\ref{fig:rent_me_event_stream}.
+  For example, the date 2023-01-04 receives the timestamp $4$,
+  2023-02-04 the timestamp $35$.
+  The initial \Request\ events
+  in the dataless enactment have timestamps $1$, $6$, $25$, and $30$,
+  and
+  the initial \Schedule\ events
+  have timestamps $3$, $4$, $8$ and $42$, etc.
+Fig. \ref{fig:example-trace} is the initial segment of the trace
+of the enactment in Fig.\:\ref{fig:rent_me_event_stream}.
+\end{examp}
+
+\begin{figure}\centering
+  \hspace*{1mm}
+  \begin{tabular}{c|c|@{\,}c@{\,}|c|@{\,}c@{\,}|@{\,}c@{\,}|@{\,}c@{\,}|@{\,}c@{\,}|c|}
+  \cline{2-9}
+  $i$ & 0 & 1 & 2 & 3 & 4     & 5 & 6 & ... \\ \cline{2-9} 
+  $\pi_\eta[i]$ 
+          &
+          & \texttt{\,Request}
+          &
+          & \texttt{Schedule}
+          & \texttt{Schedule}
+          & \texttt{Compute}
+          & \texttt{Request}, \texttt{Schedule}
+          & ... \\ \cline{2-9} 
+  \end{tabular}
+      \caption{Trace $\pi_\eta$ of the enactment in Fig.\:\ref{fig:rent_me_event_stream}}.
+      \label{fig:example-trace}
+  \end{figure}
+  
+\begin{examp}
+  Recall that for dataless events, e.g., {\Request},
+  we write event atoms without parentheses: $\Request$ instead of $\Request()$.
+  The set of atoms
+  $\phi$: 
+  ``$\Request@x, \allowbreak \Schedule@y, x\tight{\leq_0} y, x\tight{\geq_3} y$''
+  selects two events:
+  a {\Request} and a matching {\Schedule} between 0 and 3 days after the {\Request}.
+  Consider the enactment $\eta$ in Fig.\:\ref{fig:rent_me_event_stream}.
+  For this enactment,
+  we have
+  two assignments for the variables in $\phi$:
+  $\sigma_1:\{x \mapsto 1, y\mapsto 3\}$ and $\sigma_2:\{x\mapsto 1,y\mapsto 6\}$.
+  Given the rule semantics,
+  $\eta\models\phi[\sigma_1]$
+  because $1 \tight\in \eta(\Request)$,
+  $3 \tight\in \eta(\Schedule)$,
+  $1 \tight{\leq_0} 3$, and $1 \tight{\geq_3} 3$.
+  However,
+  $\eta\not\models\phi[\sigma_2]$
+  because $1+3 \tight{\not\geqslant} 6$
+  and $6\not\in\eta(\Schedule)$.
+\end{examp}
+  
+\begin{examp}
+  The following rule $r_0$ requires
+  each pair of \Request\ and subsequent \Schedule\ events
+  to be followed within 3 days by \Payment:
+  \[
+  r_{0}:\ \Request@x, \Schedule@y, x\leq_{0}y,
+  \rightarrow
+  \Payment@z, y\leq_{0} z, y\geq_{3} z
+  \]
+  The enactment $\eta$ in Example\:\ref{ex:dataless-RentMe}
+  does not satisfy $r_{0}$:
+  for the \Request\ instance at time $1$ ({\it iid} 000)
+  and the \Schedule\ instance at time $3$ ({\it iid} 100),
+  corresponding to the rule body assignment $\sigma_1(x \mapsto 1, y\mapsto 3)$,
+  there is no \Payment\ instance with timestamp between $3$ and $6$,
+  i.e., no matching assignment for the rule head.
+\end{examp}
+  
+Given a set of rules $R$,
+the discussions in Section\:\ref{sec:motiv-finite-state} suggest determining
+if an enactment satisfies $R$
+using finite state machines derived from LTL for finite traces.
+We define below the LTL operators used in our translation.
+We treat each activity $p$ in $S$
+as a propositional variable.
+LTL formulas for $S$ are defined recursively as follows:
+\[
+  \phi := p \mid
+  \textit{true} \mid
+  \textit{false} \mid
+  \neg\phi \mid
+  \phi\land\phi \mid
+  {\sf X}\phi \mid
+  {\sf X}^{-1} \phi \mid
+  {\sf F}\phi \mid
+  {\sf P} \phi
+\]
+where $p\tight\in S$,
+{\it true} and {\it false} are Boolean constants,
+and $\neg$ (not) and $\land$ (and) are Boolean operators.
+The standard Boolean abbreviations $\lor$ (or) and $\to$ (implies)
+are used as well.
+The temporal operators {\sf X} ({\em next}) and {\sf F} ({\em future})
+are common in future-time LTL \cite{pnueli1977temporal},
+while {\sf P} ({\em past})
+and {\sf X}$^{-1}$ ({\em yesterday})
+(sometimes written as {\sf Y} \cite{cimatti2004bounded})
+are common in past-time LTL \cite{lichtenstein1985glory}.
+The following notion is used for convenience:
+${\sf X}^{k}$ ($k \tight\in \Z$)
+means $k$ consecutive {\sf X} operators when $k\tight>0$, 
+$k$ consecutive {\sf X}$^{-1}$ operators when $k\tight<0$,
+and 0 instances of the {\sf X} operator when $k\tight=0$.
+
+LTL formulas are satisfied by ``traces'' defined as follows.
+An {\em interpretation} is a mapping from a set of propositions $S$ to
+\{\textit{true}, \textit{false}\}.
+A {\em trace} $\pi$ is a (finite) sequence of interpretations,
+with length ${len}(\pi)$, and
+for $0\tight\leq\tight i\tight\leq$len$(\pi){-}1$,
+$i$ is a {\it (time) instant} in $\pi$ and
+$\pi[i]$ denotes the $i^{th}$ interpretation in $\pi$.
+For an instant $i$ such that $0 \le i\le {len}(\pi){-}1$,
+and an LTL formula $\phi$ for $S$,
+we say $\pi$ {\em satisfies $\phi$ at} $i$,
+denoted $\pi, i \models \phi$,
+if one of the following is true
+(the cases for Boolean constants and operators are standard and thus omitted):
+\begin{itemize}
+\item
+  \makebox[1in][l]{$\pi,i \models p$}
+  if $\pi[i](p)\tight=$ {\it true},
+\item
+  \makebox[1in][l]{$\pi,i \models \textsf{X} \phi$}
+  if $i<len(\pi){-}1$ and $\pi,i\tight+1 \models \phi$,
+\item
+  \makebox[1in][l]{$\pi,i \models \textsf{X}^{-1} \phi$}
+  if $i>0$ and $\pi,i{-}1 \models \phi$,
+\item
+  \makebox[1in][l]{$\pi,i \models \textsf{F} \phi$}
+  if $\exists j$, $i \tight\leq j \tight\leq len(\pi){-}1$ and
+  $\pi, j \models \phi$, and
+\item
+  \makebox[1in][l]{$\pi,i \models \textsf{P} \phi$}
+  if $\exists j$,
+  $0 \tight\leq j \tight\leq i$ and $\pi, j \models \phi$
+\end{itemize}
+  
+The standard LTL abbreviation ${\sf G}$ (global)
+is used as well.
+Intuitively, the semantics indicate that
+$\pi$ satisfies ${\sf X}^k \phi$ or ${\sf X^{-k}} \phi$
+at an instant $i$ if
+$\phi$ is satisfied at the $k^{th}$ following
+(resp., preceding) instant from $i$, and
+$\pi$ satisfies ${\sf F} \phi$ (or ${\sf P} \phi$)
+at an instant $i$ if
+$\phi$ is satisfied at $i$ or an upcoming (resp., previous)
+instant.
+  
+Enactments are closely related to finite traces.
+Given an enactment $\eta$, let $\kappa$ be the largest
+timestamp in $\eta$ and $0$ if $\eta$ is empty.
+The following mapping converts enactments to and from traces:
+let $\eta$ be an enactment with event type $S$.
+The {\em trace $\pi_{\eta}$}
+is the sequence $\pi_{\eta}[0]\cdots\pi_{\eta}[\kappa]$
+where
+for each $i\tight\in [0..\kappa]$ and each $p\tight\in S$,
+$\pi_\eta[i](p)\tight=${\it true} if $i\tight\in\eta(p)$,
+and {\it false} otherwise.
+Conversely,
+for each trace $\pi$,
+the enactment $\eta_\pi$ is defined as follows:
+for each $i\tight\in [0...len(\pi)\tight{-}1]$ and each $p\tight\in S$,
+$i\tight\in\eta_\pi(p)$ if $\pi[i](p)\tight=${\it true}.
+
+
+Based on the above enactment-trace mapping,
+we conveniently use the notation $\eta,i \models \phi$
+to mean $\pi_{\eta},i\models\phi$ and
+can state the main technical problem:
+  
+{\em
+  Given a set $R$ of rules for event types $S$,
+  is there an LTL formula $\phi$ over $S$ such that
+  for each enactment $\eta$ of $S$,
+  $\eta\models R$ iff $\eta,0\models \phi$?
+}
+
+\section{Recursive Translation of Acyclic Constraints}
+\label{sec:mapping}
+  
+In this section,
+we develop techniques to translate dataless subclasses of constraints and rules
+into equivalent LTL formulas
+and
+establish the main technical result of the chapter (Theorem\:\ref{thm:rule-translation}).
+First, we describe a mechanism for mapping
+gap atoms over two variables to LTL operators.
+Then we use a graph representation of constraints
+to define and translate connected, acyclic constraints.
+We state a key lemma
+(Lemma\:\ref{lem:connected-constraint-translation})
+concerning the correctness of this translation,
+which associates
+a satisfying assignment for a constraint
+with an instant in the trace when
+the constraint's translation is satisfied.
+We then translate arbitrary acyclic constraints
+and establish its correctness as another lemma
+(Lemma\:\ref{lem:acyclic-constraint-translation}).
+Finally, we provide a translation function for
+the subclass of singly-linked, acyclic, dataless rules
+using the previous results,
+and
+state its correctness (Theorem\:\ref{thm:rule-translation}).
+
+\begin{examp}\label{ex:manual-translation}
+Consider the constraint \textsc{Rental} that 
+captures the typical behavior 
+of the IaaS service:
+\[
+\def\arraystretch{.8}      
+\begin{array}{l}
+\Request@x,\,
+\Schedule@y,\,
+\Compute@z,\,
+\Terminate@w,\\
+x \tight{\leq_1} y,~
+x \tight{\geq_{10}} y,~
+y \tight{\geq_5} z,~
+z \tight{\leq_0} w
+\end{array}
+\]
+Intuitively, \textsc{Rental}
+selects timestamps $x$, $y$, $z$, and $w$ for
+\Request, \Schedule, \Compute, and \Terminate\ events, resp.,
+that satisfy the following three conditions:
+\begin{itemize}
+\item[(i)]
+  \Schedule\ occurs at least one day 
+  but no more than 10 days after \Request,
+\item[(ii)]
+  \Compute\ occurs no later than 5 days after \Schedule,
+  and
+\item[(iii)]
+  \Compute\ occurs before or simultaneously with \Terminate.
+\end{itemize}
+
+These conditions are observed in a trace as follows:
+Condition (i) is observed in a trace
+if the proposition \Request\ holds at an instant $x$
+and the proposition \Schedule\ holds at
+instants $x{+}1, x{+}2, \dots$, or $x{+}10$.
+We rewrite the latter
+using next LTL operators (${\sf X}$) as:
+${\sf X}\,\Schedule$,
+${\sf X}^{2\,}\Schedule$,
+$\dots$, or
+${\sf X}^{10}\Schedule$ to hold at $x$.
+Using Boolean operators produces a translation of condition (i):
+``$\Request\land\bigvee_{\!1\leq j\leq 10}\!{\sf X}^j\Schedule$''.
+
+Condition (ii) is observed
+if \Schedule\ holds at some instant $y$
+and \Compute\ holds at or before $y{+}5$.
+We rewrite the second statement with next and past LTL operators:
+${\sf X}^{5}{\sf P}\,\Compute$ holds at $y$.
+Thus, a translation of condition (ii) is:
+``$\Schedule\land{\sf X}^5{\sf P}\,\Compute$''.
+
+Condition (iii) is observed
+if \Compute\ holds at $z$
+and \Terminate\ holds at $z$ or a future instant.
+Rewriting the latter with the future LTL operator,
+condition (iii) is present when
+\Compute\ and ${\sf F}\,\Terminate$ hold at $z$.
+Thus, a translation of condition (iii) is
+``$\Compute\land{\sf F}\,\Terminate$''.
+\end{examp}
+
+To generalize from these examples
+we define the following function
+for LTL formula construction from gap atoms.
+We use $\equiv$ to denote equivalence between two sets of gap atoms;
+we say $\phi_1 \equiv \phi_2$ for sets $\phi_1$ and $\phi_2$
+if $\var(\phi_1)=\var(\phi_2)$
+and for each assignment $\sigma$ to $\var(\phi_1)$,
+$\phi_1[\sigma]$ and $\phi_2[\sigma]$ are both true or both false.
+
+\begin{deff}
+  For a set of gap atoms $\phi$ over two variables $x$ and $y$,
+  let $\Gap_{x,y}(\phi)$
+  be the following operator combinations:
+  \[
+  \Gap_{x,y}(\phi) = \left\{
+  \begin{array}{@{\,}l@{\hspace*{6mm}}l}
+    {\sf X}^{n} {\sf F\ } &
+    \mbox{if }
+        \phi\equiv \{x \tight{\leq_n} y\}
+        \mbox{ for some $n\in\Z$}
+    \\
+    {\sf X}^{m} {\sf P} &
+    \mbox{if } \phi \equiv \{ x \tight{\geq_m} y\}
+    \mbox{ for some $m\in\Z$}
+    \\
+    \displaystyle {\bigvee}_{\!n \leq j \leq m}{\sf X}^{j} &
+    \mbox{if } \phi \equiv
+      \{ x \tight{\leq_n} y, x \tight{\geq_m}y\}
+      \mbox{ for some $n,m\in\Z$}
+  \end{array}\right.
+  \]
+  \vspace{-2em}
+\end{deff}
+
+The $\Gap$ function translates
+the conditions in Example\:\ref{ex:manual-translation} as follows:
+for condition\,(i),
+the proposition $\Request$ is used for the atom $\Request@x$.
+Applying $\Gap_{x,y}$ to
+$\{x\tight{\leq_1} y, x\tight{\geq_{10}} y\}$
+produces the operators
+$\bigvee_{\!1\leq j\leq 10}\!{\sf X}^j$,
+and the proposition corresponding
+to variable $y$, $\Schedule$, is placed after these operators: $\Request\land\bigvee_{\!1\leq j\leq 10}\!{\sf X}^j\ \Schedule$.  
+
+The following lemma shows that
+each constraint with two variables
+is equivalent to some constraint with at most two gap atoms,
+i.e., the input required for the $\Gap$ function.
+
+\begin{lemma}\label{lemma:redundant-atoms}
+  Let $\phi$ be a set of gap atoms over two variables.
+  Without loss of generality, let $\var(\phi)\tight=\{x,y\}$.
+  Then $\phi$ is equivalent to
+  a set in one of the following three forms:
+  \begin{itemize}
+  \item
+    $\{x \tight{\leq_n} y\}$, for some $n\in\Z$,
+  \item
+    $\{x \tight{\geq_m} y\}$, for some $m\in\Z$, or
+  \item
+    $\{x \tight{\leq_n} y, x \tight{\geq_m}y\}$, for some $n,m\in\Z$.
+  \end{itemize}
+\end{lemma}
+
+\begin{proof}
+First, note that a gap atom with exactly one variable
+is either a tautology or a contradiction,
+thus equivalent to either $\{x \tight{\leq_0}x\}$
+or $\{x \tight{\leq_1}x\}$.
+Second, observe that for all $m\tight\in\Z$,
+$y \tight{\leq_m} x$ iff $x \tight{\geq_{-m}} y$, and
+$y \tight{\geq_m} x$ iff $x \tight{\leq_{-m}} y$.
+These equivalences allow all gap atoms in $\phi$ to be written
+with $x$ on the left of the predicate and $y$ on the right.
+
+Next, note that for all $n,m\tight\in\Z$ with $n\tight\leq m$,
+$x\tight{\leq_m} y$ implies $x\tight{\leq_n} y$, and
+$x\tight{\geq_n} y$ implies $x\tight{\geq_m} y$.
+If $\phi$ contains $x\tight{\leq_n} y$ and
+$x\tight{\leq_m} y$ where $n\tight\leq m$,
+then $\phi$ is equivalent to $\phi\tight-\{x\tight{\leq_n} y\}$.
+A similar statement holds for $\geq$-atoms.
+Repeating these eliminations of atoms in $\phi$
+yields an equivalent set
+with at most one $\leq$-atom and at most one $\geq$-atom.
+\end{proof}
+
+\begin{examp}
+Let $\phi_4$ be $x\tight{\leq_1} y, x\tight{\leq_3} y,
+x\tight{\geq_4} y, y\tight{\geq_1} x$.
+We rewrite all gap atoms with $x$ on the left of the predicate:
+$x\tight{\leq_1} y, x\tight{\leq_3} y,
+x\tight{\geq_4} y, x\tight{\leq_{-1}} y$.
+Since $x\tight{\leq_3} y$ implies $x\tight{\leq_1} y$ 
+and $x\tight{\leq_3} y$ implies $x\tight{\leq_{-1}} y$,
+atoms $x\tight{\leq_1} y$ and $y\tight{\geq_{1}} x$
+can be removed from $\phi_4$.
+Thus, $\phi_4$ is equivalent to
+$x\tight{\leq_3} y, x\tight{\geq_4} y$.
+\end{examp}
+
+We now consider how to translate constraints with more than two variables.
+For two gap atoms that share exactly one variable,
+we ``join'' their LTL translations
+using their shared variable.
+
+\begin{examp}\label{ex:joining-technique}
+  Consider \textsc{Rental} from Example\:\ref{ex:manual-translation}.
+  Condition (ii): 
+  $\Schedule@y$, $\Compute@z$, $y\geq_{5}z$,
+  is translated by $\Gap$ as:
+  $\Schedule\land{\sf X}^5{\sf P}\,\Compute$,
+  and condition (iii) with atoms
+  $\Compute@z,\Terminate@w,z\leq_{0}w$
+  yields $\Compute\land{\sf F}\,\Terminate$.
+  The shared variable $z$ corresponds to the \Compute\ proposition
+  in both translations.
+  Accordingly, the translations can be combined
+  by placing the second formula
+  in the position in the first formula
+  where \Compute\ appears,
+  combining the duplicated proposition (bars added for illustration):
+  {\centering
+  $
+    \psi=\overline{\Schedule\land{\sf X}^5{\sf P}\,
+      \underline{(\Compute^{\ }}}\underline{\land\,{\sf F}\,\Terminate)}
+  $
+  }
+
+  To complete the translation of $\textsc{Rental}$,
+  we join $\psi$
+  with a LTL translation of condition (i).
+  Recall that condition (i) covers atoms
+  $\Request@x$, $\Schedule@y$, $x\leq_{1}y$, $x\geq_{10}y$
+  and can be translated as:
+  
+  \begin{center}
+  $\Request\land{\bigvee}_{\!1\leq j\leq 10}{\sf X}^j\,\Schedule$
+  \end{center}
+
+  The atoms for conditions (ii) and (iii)
+  and the atoms for condition (i) share the variable $y$,
+  which corresponds with the \Schedule\ proposition
+  in both translations.
+  To combine the translations,
+  we place $\psi$
+  at the position in the first formula where $\Schedule$ occurs,
+  then remove the duplicated \Schedule\ proposition:
+
+  \begin{center}
+  $
+  \overline{\Request\land\!\bigvee_{1\leq j\leq 10}{\sf X}^j
+  \underline{(\Schedule}}
+  \underline{\tight\land{\sf X}^5{\sf P}\,(\Compute\land{\sf F}\,\Terminate))}
+  $
+  \vspace{-2.5em}
+  \end{center}
+\end{examp}
+  
+To generalize the
+joining technique in Example\:\ref{ex:joining-technique},
+we represent constraints with graphs.
+Recall that each constraint is a conjunctive formula
+with event atoms and gap atoms,
+i.e., unary and binary predicates on time variables.
+Thus, atoms
+can be faithfully represented by an undirected graph.
+
+\begin{deff}
+  Let $\phi$ be a constraint.
+  The {\em graph of} $\phi$ is an undirected, labeled graph
+  $G_\phi\tight=(V,E,L)$ such that
+  $V$ is the set of variables used in $\phi$,
+  $E$ is the set of pairs $(x,y)$ such that $\phi$ contains
+  a gap atom using both $x$ and $y$, and
+  $L$ is the mapping from $V\tight\cup E$
+  such that
+  \begin{itemize}
+  \item
+    for each variable $x\tight\in V$,
+    $L(x)\tight=\{p\mid p@x\mbox{ is an event atom in }\phi\}$, and
+  \item
+    for each edge $(x,y)\tight\in E$,
+    $L(x,y)\tight=\{\alpha \mid \alpha
+    \mbox{ is a gap atom in $\phi$ using $x$ and $y$}\}$.
+  \end{itemize}
+  Furthermore, $\phi$ is {\em acyclic}
+  if $G_\phi$ is acyclic,
+  {\em connected} if $G_\phi$ is connected.
+\end{deff}
+
+\begin{figure}[h]\centering
+\scalebox{.8}{
+\begin{tikzpicture}[-,>=stealth',shorten
+>=1pt,auto,node distance=4cm,
+      thick,main node/.style={circle,draw,font=\sffamily\normalsize\bfseries}]
+  \node[main node, label={\Request}] (1) {$x$};
+  \node[main node, label={\Schedule}] (2) [right of=1] {$y$};
+  \node[main node, label={\Compute}] (3) [right of=2] {$z$};
+  \node[main node, label={\Terminate}] (4) [right of=3] {$w$};
+\path[every node/.style={font=\sffamily\normalsize}]
+    (1) edge node [align=center] {$\{x \leq_1 y$,\\$x \geq_{10} y\}$} (2)
+    (2) edge node [align=center] {$\{y \geq_5 z$\}} (3)
+    (3) edge node [align=center] {$\{z \leq_0 w$\}} (4);
+\end{tikzpicture}}
+\caption{Graph of \textsc{Rental}}
+\label{fig:first-graph}
+\end{figure}
+
+\begin{examp}
+  The graph of \textsc{Rental} (Fig.\:\ref{fig:first-graph})
+  has nodes $\{x,y,z,w\}$
+  labeled with \Request, \Schedule, \Compute, \Terminate, resp.,
+  edges $(x,y),(y,z),(z,w)$ labeled with
+  $\{x\tight{\leq_1} y, x\tight{\geq_{10}} y\}$,
+  $\{y\tight{\geq_5} z\}$, and $\{z\tight{\leq_0} w\}$, resp.,
+  and is acyclic and connected.
+\end{examp}
+
+
+\begin{deff}
+Let $\phi$ an acyclic, connected constraint
+with the graph $G_\phi\tight=(V,E,L)$.
+For each node $x\tight\in V$, the {\em derived tree of $\phi$ at $x$},
+denoted $T_{\phi}^x$, is the directed tree $(V,E',L)$ rooted at $x$
+with nodes $V$,
+edges $E'$ with the directed version of each edge in $E$
+pointing away from $x$,
+and the label mapping $L$.
+For each node $y\tight\in V$,
+$T_\phi^x|_y$ denotes the subtree of $T_\phi^x$ rooted at $y$.  
+For each node $z\tight\in V$,
+let $\textsl{Ch}(z)$ denote $z$'s children.
+\end{deff}
+   
+We formulate a translation of connected, acyclic constraints
+using their derived trees.
+Let $\phi$ be a connected, acyclic constraint
+and $x$ a variable used in $\phi$,
+where $T_\phi^x$ is the derived tree of $\phi$ at $x$.
+Intuitively, $\AcycConn(T_\phi^x,x)$ 
+denotes a translation of $\phi$.
+In fact,
+for each node $y$ in $T_\phi^x$, 
+the function $\AcycConn(T_\phi^x,y)$
+maps $T_\phi^x$ and $y$ to an LTL formula,
+using the subtree $T_\phi^x|y$:
+$$
+\AcycConn(T_\phi^x,y)\tight=
+\!\left\{\def\arraystretch{1.25}
+\begin{array}{@{}l@{~~}l}\displaystyle
+  {\bigwedge}_{p\in L(y)\,} p
+  \hfill \mbox{if $y$ is a leaf}
+  \\\displaystyle
+  {\bigwedge}_{p\in L(y)\,} p~{\land}
+  {\bigwedge}_{z \in \textsl{Ch}(y)} \!\textsl{\Gap}_y(L(y,z)) 
+    \AcycConn(T_{\phi}^{x},z)~~~~~
+  \hfill \mbox{o.w.}
+  \end{array}\right.
+$$
+  
+All event names in the label of $y$
+are used in the conjunction $\bigwedge_{p\in L(y)}\!p$
+of LTL propositions.
+For each child $z$ of $y$,
+the gap atoms $L(y,z)$
+are translated to $\Gap_{y,z}(L(y,z))$
+and
+the algorithm makes a recursive call $\AcycConn(T_{\phi}^x,z)$
+to translate the subtree rooted at $z$ with respect to $z$.
+
+  \begin{figure}[h]\centering
+  \scalebox{.75}{\hspace*{-2.5mm}
+  \begin{tikzpicture}[-,>=stealth',shorten
+  >=1pt,auto,node distance=3cm,
+        thick,main node/.style={circle,draw,font=\sffamily\normalsize\bfseries}]
+    \node[main node, label={\Request}] (1) {$x$};
+    \node[main node, label={\Schedule}] (2) [right=5.5cm of 1] {$y$};
+    \node[main node, label={\Compute}] (3) [right=3.8cm of 2] {$z$};
+    \node[main node, label={\Terminate}] (4) [right=3.7cm of 3] {$w$};
+  \path[->, every node/.style={font=\sffamily\normalsize}]
+      (1) edge node [below=0.4cm, align=center] {$\Gap_{x,y}(\{
+      \begin{array}{c}
+           x \leq_1 y,\\
+           x \geq_{10} y 
+      \end{array}\})=\bigvee_{1\leq j\leq 10}{\sf X}^{j}$} (2)
+      (2) edge node [below=0.6cm, align=center] {$\Gap_{y,z}(\{y \geq_5 z\}){=}{\sf X}^5{\sf P}$} (3)
+      (3) edge node [below=0.6cm, align=center] {$\Gap_{z,w}(\{z \leq_0 w\}){=}{\sf F}$} (4);
+  \end{tikzpicture}}
+  \caption{The derived tree $T_{\textsc{Rental}}^{x}$ with $\Gap$-mapping from edge labels to LTL operators}
+  \label{fig:second-graph}
+  \end{figure}
+  
+  \begin{examp}
+    The $\AcycConn$ translation of \textsc{Rental},
+    abbreviated here as $\phi$,
+    is done using the derived tree $T_\phi^x$
+    shown in Fig.\:\ref{fig:second-graph}.
+    Let $\phi_y,\phi_z,\phi_w$ be the subsets of $\phi$
+    such that the derived trees $T_{\phi_y}^y$,
+    $T_{\phi_z}^z$ ,$T_{\phi_w}^w$
+    are the subtrees of $T_\phi^x$
+    rooted at $y,z,w$ (resp.).
+    We demonstrate the translation beginning with the leaf node $w$
+    and moving towards the root $x$:
+  
+    \noindent
+    $\AcycConn(T_{\phi_w}^w)\tight=\Terminate$\\
+    $\AcycConn(T_{\phi_z}^z)
+    \tight= \Compute\land{\sf F}\,\AcycConn(T_{\phi_w}^w)
+    \tight= \Compute\land{\sf F}\,\Terminate$\\
+    $\AcycConn(T_{\phi}^y) \tight= \Schedule \land {\sf X}^5{\sf P}\,\AcycConn(T_{\phi_z}^z)$\\
+      \hspace*{6.25em}$= \Schedule \land
+        {\sf X}^5{\sf P}\,(\Compute\land{\sf F}\,\Terminate)\mbox{, ~~~and}$\\
+      $\AcycConn(T_{\phi_{x}}^x) \tight=\displaystyle
+      \Request\land \hspace*{-3mm}\bigvee_{1\leq j \leq 10}\hspace*{-3mm}{\sf X}^j\ 
+      (\Schedule \land {\sf X}^5{\sf P}(\Compute\land{\sf F}\,\Terminate))$
+  \end{examp}
+  
+  The following lemma relates two notions of satisfaction
+  defined in Section\:\ref{sec:dataless-model-ltl}:
+  the satisfaction of a constraint by an enactment and an assignment,
+  and the satisfaction of an LTL formula by a trace at an instant.
+  
+  Let $\phi$ be an acyclic, connected constraint
+  where $x,y\in\var(\phi)$.
+  Let $atoms(T_\phi^x)$ ($atoms(T_\phi^x|_y)$)
+  denote the set of atoms $\alpha$ in $\phi$
+  such that $T_\phi^x$ (resp., $T_\phi^x|_y$) is the tree derived from $\alpha$.
+  
+\begin{lemma}\label{lem:connected-constraint-translation}
+  Let $\eta$ be an enactment,
+  $\phi$ a connected, acyclic constraint,
+  $x,y$ variables in $\var(\phi)$, and
+  $i{\in}\N$ a timestamp.
+  The following statements are equivalent:
+  \begin{enumerate}
+  \item
+    There is an assignment $\sigma$ such that
+    $\sigma(y)=i$ and
+    $\eta\models atoms(T_\phi^x|_y)[\sigma]$,
+  \item
+    $\eta, i\models \AcycConn(T_\phi^x,y)$.
+  \end{enumerate}
+\end{lemma}
+  
+\begin{proof}
+The proof is accomplished by
+mathematical induction on 
+the height $n$ of the subtree $T_\phi^x|_y$.
+Without loss of generality,
+let $i$ be a timestamp
+and
+$L$ the label function of $T_\phi^x$.
+
+\smallskip
+
+{\em Base case:}~ $y$ is a leaf in $T_\phi^x$.\\
+Since $\phi$ is connected, $T_\phi^x$ is connected,
+and $T_\phi^x|_y$ has just the node $y$.
+The atoms for $T_\phi^x|_y$ are
+the event atoms in $\phi$ that use $y$,
+i.e., $atoms(T_\phi^x|_y)= \{\, p@y\,|\, p\tight\in L(y)\,\}$.
+The $\AcycConn$ translation of $T_\phi^x$
+w.r.t. $y$ is
+$\AcycConn(T_\phi^x,y)=\bigwedge_{p\in L(y)}p$.
+To establish the base case,
+it suffices to show that
+
+(a) there is an assignment $\sigma$ such that
+$\sigma(y)\tight=i$ and
+$\eta\models \{p@y\,|\,p\in L(y)\}[\sigma]$
+\\
+iff
+~(b) $\eta,i\models\bigwedge_{p\in L(y)}p$.
+
+\smallskip
+
+To show (a) implies (b),
+we assume for some assignment $\sigma$,
+$\sigma(y)\tight=i$ and
+$\eta\models \{p@y\,|\,p\in L(y)\}[\sigma]$.
+Isolating the satisfaction of each event atom,
+we have:
+for each event name $p$ in $L(y)$,
+$\sigma(y)\tight\in \eta(p)$.
+Under the mapping between enactments and traces
+(see Section\:\ref{sec:dataless-model-ltl}),
+this is equivalent to:
+for each $p\tight\in L(y)$,\, $\eta,\sigma(y)\tight\models p$.
+Combining the event names associated with $y$ 
+with conjunction,
+we have: $\eta,\sigma(y)\tight\models\bigwedge_{p\in L(y)}p$.
+Since $\sigma(y)\tight=i$,
+we have $\eta,i\models \bigwedge_{p\in L(y)}p$.
+
+To show (b) implies (a),
+we assume $\eta,i\tight\models\bigwedge_{p\in L(y)}p$.
+It follows that
+for each $p\tight\in L(y)$, $\eta,i \tight\models p$.
+Using again the mapping between enactments and traces,
+this is equivalent to:
+for each $p\tight\in L(y)$, $i\tight\in \eta(p)$.
+Let $\sigma$ be an assignment such that $\sigma(y)\tight=i$.
+For each $p\tight\in L(y)$, $\sigma(y)\tight\in \eta(p)$,
+i.e.,
+for each $p\tight\in L(y)$, $\eta\models\{p@y\}[\sigma]$.
+Therefore,
+$\eta\models\{p@y\,|\,p\in L(y)\}[\sigma]$.
+
+\medskip
+
+{\em Induction hypothesis:}
+For each node $z\tight\in Ch(y)$ in $T_\phi^x$,
+i.e., each subtree of height at most $n-1$,
+for each timestamp $j\in\N$,
+the following statements are equivalent:
+\begin{enumerate}
+\item[$(1z)$]
+There is an assignment $\sigma_z$ such that
+$\sigma_z(z)=j$ and
+$\eta\models atoms(T_\phi^x|_z)[\sigma_z]$.
+\item[($2z$)]
+$\eta,j \models \AcycConn(T_\phi^x,z)$.
+\end{enumerate}
+
+\smallskip
+
+{\em Induction step:}
+Let the subtree $T_\phi^x|_y$ have height $n$.
+We shall show that
+
+(A) There is an assignment $\sigma$ such that
+$\sigma(y)\tight=i$ and
+$\eta\models atoms(T_\phi^x|_y)[\sigma]$
+\\
+iff\,
+(B) $\eta,i\models \AcycConn(T_\phi^x,y)$.
+
+\smallskip
+
+First, we show that (A) implies (B).
+We begin by
+assuming there is an assignment $\sigma$ such that
+$\sigma(y)\tight=i$ and
+$\eta\models atoms(T_\phi^x|_y)[\sigma]$.
+
+\smallskip
+
+{\sl Claim A:}
+For each child $z$ of $y$,\,
+$\eta,i\models \Gap_{y,z}(L(y,z))\AcycConn(T_\phi^x,z)$.
+
+We prove Claim A with three cases of the $L(y,z)$.
+Since $T_\phi^x|_z$ is a subtree of $T_\phi^x|_y$
+we have
+$\eta\models atoms(T_\phi^x|_z)[\sigma]$.
+Letting $j\tight=\sigma(z)$, ($1z$)
+of the inductive hypothesis holds
+with the assignment $\sigma_z$.
+Applying the inductive hypothesis, 
+we have
+$\eta,j\models\AcycConn(T_\phi^x,z)$.
+It remains to establish (B):
+$\eta,i\models\AcycConn(T_\phi^x,y)$.
+
+Since $z$ and $y$ are nodes in $T_\phi^x|_y$ and
+$\eta\models atoms(T_\phi^x|_y)[\sigma]$,
+we immediately have $\eta\models L(y,z)[\sigma]$.
+By Lemma\:\ref{lemma:redundant-atoms},
+$L(y,z)$ is equivalent to one of the following three constraints.
+
+\smallskip
+
+\underline{Case 1}:
+$L(y,z)\equiv \{y \tight{\leq_m} z\}$ for some $m\tight\in\mathbb{Z}$.
+\\
+Since $\eta\tight\models L(y,z)[\sigma]$,
+we have $\eta\tight\models (y\tight{\leq_m} z)[\sigma]$,
+i.e.,
+$\sigma(y) {+} m \tight{\leq} \sigma(z)$.
+Recall that $\sigma(y)\tight=i$ and $\sigma(z)\tight=j$.
+We have $i{+}m{+}k\tight=j$ for some $k\tight\in\mathbb{N}$.
+Replacing $j$ in the inductive hypothesis,
+we obtain $\eta, i{+}m{+}k \tight\models \AcycConn(T_\phi^x,z)$.
+It means that $\AcycConn(T_\phi^x,z)$ is satisfied
+by $\eta$ at some future time of time $i{+}m$,
+i.e.,
+$\eta,i{+}m\models {\sf F}\AcycConn(T_\phi^x,z)$.
+Adjusting the index of satisfaction by prepending $m$ next operators,
+we have $\eta,i\models {\sf X}^{m}{\sf F}\AcycConn(T_\phi^x,z)$.
+
+\smallskip
+
+\underline{Case 2}:
+$L(y,z)\equiv \{y \tight{\geq_m} z\}$ for some $m\in\mathbb{Z}$.
+\\
+Similarly, $\eta\tight\models L(y,z)[\sigma]$ implies
+$\eta\tight\models (y \tight{\geq_m} z)[\sigma]$, and
+$\sigma(y) {+} m \tight{\geq} \sigma(z)$.
+Since $\sigma(y)\tight=i$ and $\sigma(z)\tight=j$,
+we have $i{+}m{-}k\tight=j$ for some $k\tight\in\mathbb{N}$.
+From the inductive hypothesis,
+we have
+$\eta, i{+}m{-}k \tight\models \AcycConn(T_\phi^x,z)$.
+It is easy to see
+$\eta$ satisfies ${\sf P}\AcycConn(T_\phi^x,z)$ at $i{+}m$
+and prepending $m$ next operators, we have
+$\eta,i\tight\models {\sf X}^{m}{\sf P}\AcycConn(T_\phi^x,z)$.
+
+\smallskip
+
+\underline{Case 3}:
+$L(y,z)\equiv \{ y \tight{\leq_m} z, y \tight{\geq_{m'}} z\}$
+for some $m,m'\tight\in\mathbb{Z}$.
+\\
+As before, $\eta\tight\models L(y,z)[\sigma]$ implies
+$\eta\tight\models (y {\leq_m} z)\tight\wedge(y {\geq_{m'}} z)[\sigma]$,
+and $\sigma(y){+}k\tight=\sigma(z)$
+for some $m\tight\leq k\tight\leq m'$.
+Since $\sigma(y)\tight=y$ and $\sigma(z)\tight=j$,
+$i{+}k\tight=j$.
+From the inductive hypothesis,
+it follows that
+$\eta, i{+}k \tight\models \AcycConn(T_\phi^x,z)$.
+Since $k$ is constrained between $m,m'$ we have
+$\eta, i\models \bigvee_{m\leq k \leq m'}
+{\sf X}^{k}\ \AcycConn(T_\phi^x,z)$.
+
+\smallskip
+
+By Lemma\:\ref{lemma:redundant-atoms} and
+the above cases,
+Claim A is proved.
+
+\smallskip
+
+Claim A implies that (C):
+$\eta,i\tight\models
+\bigwedge_{z\in Ch(y)} \Gap_{y,z}(L(y,z))\AcycConn(T_\phi^x,z)$.
+
+Earlier we assumed (A) was true,
+so
+$\eta\models\alpha[\sigma]$
+for each event atom $\alpha$ that uses $y$.
+It follows that $\eta\models\{p@y\,|\,p\tight\in L(y)\}[\sigma]$.
+Using a similar reasoning to that in the base case,
+we have (D) $\eta,i\models\bigwedge_{p\in L(y)}p$.
+Combining (C) and (D),
+we have 
+$\eta,i\models (\bigwedge_{p\in L(y)}p) \land 
+\bigwedge_{z\in Ch(y)} \Gap_{y,z}(L(y,z)) \AcycConn (T_\phi^x,z)$,
+i.e.,
+$\eta,i\models\AcycConn(T_\phi^x,y)$
+(applying the definition of $\AcycConn$).
+
+\smallskip
+
+Now, we show that (B) implies (A) for the inductive step.
+First we assume (B): $\eta,i\models\AcycConn(T_\phi^x,y)$.
+Expanding $\AcycConn$ with its definition,
+it follows that
+$\eta,i\models(\bigwedge_{p\in L(y)}p) 
+\bigwedge_{z\in Ch(y)} \Gap_{y,z}(L(y,z))\AcycConn(T_\phi^x,z)$.
+
+We let $z$ be an arbitrary child of $y$.
+Then, $\eta,i\models \Gap_{y,z}(L(y,z))\AcycConn(T_\phi^x,z)$ holds.
+
+\smallskip
+
+{\sl Claim B:}
+There is some timestamp $j$
+such that
+\begin{enumerate}
+\item[(c1)]
+$\eta,j\tight\models \AcycConn(T_\phi^x,z)$, and
+\item[(c2)]
+for each assignment $\sigma'$ such that $\sigma'(y)\tight=i$ and
+$\sigma'(z)\tight=j$, $\eta\tight\models L(y,z)[\sigma']$.
+\end{enumerate}
+
+We establish Claim B with the following three cases of $L(y,z)$.
+
+\underline{Case 1}: $L(y,z)\tight\equiv\{y\tight{\leq_{m}} z\}$
+for some $m\tight\in\Z$.
+\\
+By definition,
+$\Gap_{y,z}(L(y,z))\tight={\sf X}^m{\sf F}$, and
+we have $\eta,i\models {\sf X}^m{\sf F}\AcycConn(T_\phi^x,z)$.
+The latter is equivalent to $\eta$ satisfying ${\sf F}\AcycConn(T_\phi^x,z)$
+at time $i{+}m$.
+It follows that
+$\eta,i{+}m{+}k\models \AcycConn(T_\phi^x,z)$
+for some $k\tight\in\N$.
+For $j\tight=i{+}m{+}k$,
+$\eta,j\tight\models \AcycConn(T_\phi^x,z)$.
+Since $k$ is nonnegative
+and $L(y,z)\tight\equiv\{y\tight{\leq_{m}} z\}$,
+$\eta\tight\models L(y,z)[\sigma']$
+for all assignments $\sigma'$
+such that $\sigma'(y)\tight=i$ and $\sigma'(z)\tight=j$.
+
+\underline{Case 2}: $L(y,z)\tight\equiv\{y \tight{\geq_{m}} z\}$
+for some $m\tight\in\Z$.
+\\
+In this case, $\Gap_{y,z}(L(y,z))\tight={\sf X}^{m}{\sf P}$, and
+$\eta,i\tight\models {\sf X}^{m}{\sf P}\AcycConn(T_\phi^x,z)$.
+By LTL semantics,
+$\eta,i{+}m\models {\sf P}\AcycConn(T_\phi^x,z)$,
+and
+$\eta,i{+}m{-}k\models \AcycConn(T_\phi^x,z)$
+for some $k\tight\in\N$.
+Letting $j\tight=i{+}m{-}k$,
+$\eta,j\models \AcycConn(T_\phi^x,z)$,
+and $i\tight{\geq_{m}}j$ ($k$ is non-negative).
+Since $L(y,z)\equiv$ $\{y\tight{\geq_m} z\}$,
+we conclude that 
+$\eta\models L(y,z)[\sigma']$
+for all assignments $\sigma'$
+such that $\sigma'(y)\tight=i$ and $\sigma'(z)\tight=j$.
+
+\underline{Case 3}:
+$L(y,z)\tight\equiv\{y\tight{\leq_{m}} z,y\tight{\geq_{m'}}z\}$
+for some $m,m'\tight\in\Z$.
+\\
+Note that $m\tight\le m'$ must hold,
+otherwise the constraint $L(y,z)$ is unsatisfiable.
+By definition,
+$\Gap_{y,z}(L(y,z))\tight=\bigvee_{\hspace*{-2pt}m\leq k\leq m'} {\sf X}^k$, and
+$\eta,i\tight\models\bigvee_{\hspace*{-2pt}m\leq k\leq m'}{\sf X}^k
+\AcycConn(T_\phi^x,z)$.
+It follows that
+for some $k\tight\in[m..m']$,
+$\eta,i\models {\sf X}^k\AcycConn(T_\phi^x,z)$,
+and 
+$\eta,i{+}k\tight\models \AcycConn(T_\phi^x,z)$.
+Let $j\tight=i{+}k$.
+We have
+$i\tight{\le_m}j\tight\wedge i\tight{\ge_{m'}}j$ and
+$\eta,j\tight\models \AcycConn(T_\phi^x,z)$.
+Since
+$L(y,z)\tight\equiv$ $\{y\tight{\leq_m} z,y\tight{\geq_{m'}} z\}$,
+$\eta\models L(y,z)[\sigma']$
+for all assignments $\sigma'$ such that
+$\sigma'(y)\tight=i$ and $\sigma'(z)\tight=j$.
+
+This concludes the proof of Claim B.
+
+\smallskip
+
+We now prove (B) implies (A).
+From (B), we have\\
+$\eta,i\models
+\bigwedge_{z\in Ch(y)} \Gap_{y,z}(L(y,z))\AcycConn(T_\phi^x,z)$.
+For each child $z\tight\in Ch(y)$,
+we have
+$\eta,i\models \Gap_{y,z}(L(y,z))\AcycConn(T_\phi^x,z)$.
+Applying Claim B,
+there is a timestamp $j$
+such that
+$\eta,j\models \AcycConn(T_\phi^x,z)$.
+By the inductive hypothesis,
+it follows that $(1z)$ also holds:
+there is some assignment $\sigma_z$
+such that 
+$\sigma_z(z)\tight=j$
+and
+$\eta\tight\models atoms(T_\phi^x|_z)[\sigma_z]$.
+
+Since $T_\phi^x|_y$ is a tree with subtrees
+$T_\phi^x|_z$'s where $z\tight\in Ch(y)$,
+we can combine all assignments $\sigma_z$'s
+for $y$'s children $z\tight\in Ch(y)$
+into an assignment $\sigma$ such that
+$\sigma(y)\tight=i$.
+Note that 
+for each child $z\tight\in Ch(y)$ and each
+node $v$ in subtree $T_\phi^x|_z$,
+$\sigma(v)\tight=\sigma_z(v)$.
+
+\smallskip
+
+By (B),
+$\eta,i\tight\models \AcycConn(T_\phi^x,y)$,
+where
+
+$\AcycConn(T_\phi^x,y) \tight=$
+$(\bigwedge_{p\in L(y)}\hspace*{-1pt}p)
+\wedge \bigwedge_{z\in Ch(y)} \hspace*{-1pt} \Gap_{y,z}(L(y,z))$.\\
+To complete the proof of the lemma,
+we show $\eta\models atoms(T_\phi^x|_y)[\sigma]$.
+Consider an arbitrary atom $\alpha$ in $atoms(T_\phi^x|_y)$.
+
+\underline{Case 1}:
+$\alpha$ is an event atom using $y$.~
+From identical reasoning as given in the base case,
+$\eta\models \{p@y|p\in L(y)\}[\sigma]$.
+Since $\sigma(y)\tight=i$,
+$\eta\models\alpha[\sigma]$.
+
+\underline{Case 2}:
+$\alpha$ is a gap atom in the label $L(y,z)$
+for some $z\tight\in Ch(y)$.~
+By construction of $\sigma$,
+$\sigma(y)\tight=i$ and $\sigma(z)\tight=\sigma_z(z)\tight=j$,
+where
+$j$ is obtained from Claim B
+$\sigma_z$ from applying the inductive hypothesis with $z$.
+Thus, we have $\eta\models\alpha[\sigma]$.
+
+\underline{Case 3}:
+$\alpha$ is an event atom or gap atom
+in $atoms(T_\phi^x|_z)$ for some $z\tight\in Ch(y)$.
+By the inductive hypothesis with $z$
+we have an assignment $\sigma_z$ such that
+$\eta\models atoms(T_\phi^x|_z)[\sigma_z]$.
+From the construction of $\sigma$,
+$\sigma$ and $\sigma_z$ agree on all variables $v$
+used in $atoms(T_\phi^x|_z)$.
+Thus, we have $\eta\models atoms(T_\phi^x|_z)[\sigma]$.
+
+These cases cover all atoms in $atoms(T_\phi^x|_y)$.
+Therefore, $\eta\models atoms(T_\phi^x|_y)[\sigma]$.
+This establishes (A) is established. 
+
+This concludes the proof of Lemma\:\ref{lem:connected-constraint-translation}.
+\end{proof}
+  
+A key observation in
+proving Lemma\:\ref{lem:connected-constraint-translation}
+is that
+an assignment satisfying a constraint for a given enactment
+identifies the instants where subformula of $\AcycConn$,
+especially propositions, are true in the enactment's trace.
+Note that $atoms(T_\phi^x|_x)\tight=atoms(T_\phi^x)\tight=\phi$
+for each constraint $\phi$ and each $x\tight\in\var(\phi)$.
+Then, we have the following corollary.
+  
+\begin{corollary}
+  Let $\eta$ be an enactment,
+  $\phi$ a connected, acyclic constraint,
+  $x$ a variable in $\var(\phi)$,
+  and $i\tight\in\N$ a timestamp.
+  The following are equivalent:
+  \begin{enumerate}
+  \item
+    There is an assignment $\sigma$,
+    such that
+    $\sigma(x)\tight=i$ and $\eta\models\phi[\sigma]$.
+  \item
+    $\eta,i\models \AcycConn(T_\phi^x,x)$.
+  \end{enumerate}
+\end{corollary}
+
+We now use $\AcycConn$ to define a function
+to translate
+acyclic and possibly disconnected constraints.
+Let $\phi$ be an arbitrary acyclic constraint;
+$\phi$ can be partitioned into $k$ connected constraints
+$\seq{\phi}{k}$.
+Let $x_j$ be a variable in $\var(\phi_j)$
+for each $1\tight\le j\tight\le k$;
+a translation of each $\phi_j$ is given by
+$\AcycConn(T_{\phi_j}^{x_j},x_j)$.
+For each pair $1\tight\leq j, l\tight\leq k$,
+if $j\tight\neq l$
+the sets $\var(\phi_j)$ and $\var(\phi_k)$ are disjoint.
+Thus, assignments to these variables,
+and the instants to satisfy
+$\AcycConn(T_{\phi_j}^{x_j},x_j)$
+and
+$\AcycConn(T_{\phi_l}^{x_l},x_1)$
+are independent.
+Accordingly, we combine these translations
+by
+choosing one variable, here $x_1$, as an ``anchor'',
+translating $\phi_1$ as
+$\AcycConn(T_{\phi_1}^{x_1},x_1)$,
+then conjuncting this formula
+with the $\AcycConn$ translations
+of the other connected constraints,
+offset by past and future operators.
+
+The translation of $\phi$ anchored at $x_1$ is as follows: 
+$\Acyc(T_\phi^{x_1},x_1) =$
+$$
+\AcycConn(T_{\phi_1}^{x_1},x_1) \land
+\bigwedge_{2\le j \le k}
+\left(\textsf{P}\AcycConn(T_{\phi_j}^{x_j},x_j)\!\lor
+  \textsf{F}\AcycConn(T_{\phi_j}^{x_j},x_j)\right)
+$$
+The translation $\Acyc(T_\phi^{x_1},x_1)$ is anchored
+at $x_1$ because if 
+$\eta\models\phi[\sigma]$,
+the LTL formula
+$\Acyc(T_\phi^{x_1},x_1)$ is true at instant $\sigma(x_1)$
+in $\eta$.
+This anchoring is crucial in connecting
+the satisfaction of constraints
+and LTL formulas.
+
+The following lemma extends
+Lemma\:\ref{lem:connected-constraint-translation}
+to arbitrary acyclic constraints.
+
+\begin{lemma}\label{lem:acyclic-constraint-translation}
+  Let $\eta$ be an enactment,
+  $\phi$ an acyclic constraint,
+  $x$ a variable in $\phi$, and
+  $i\tight\in\N$ a timestamp.
+  The following are equivalent:
+  \begin{enumerate}
+  \item
+    There is an assignment $\sigma$ such that
+    $\eta\models\phi[\sigma]$ and $\sigma(x)\tight=i$.
+  \item
+    $\eta, i \models \Acyc(T_\phi^{x},x)$.
+  \end{enumerate}
+\end{lemma}
+
+\begin{proof}
+  Let $i$ be a timestamp and
+  $\seq{\phi}{k}$ be connected constraints
+  that partition $\phi$.
+  Let $x_j$ be a variable in $\phi_j$
+  for each $1\tight\le j\tight\le k$.
+  Without loss of generality,
+  assume $x=x_1$.
+
+  Assume that for some assignment $\sigma$,
+  $\eta\tight\models(\phi_1{\cup}\,{\cdot}{\cdot}{\cdot}\,{\cup}\phi_k)[\sigma]$
+  and $\sigma(x_1)\tight=i_1$.
+  Then,
+  $\eta\tight\models\phi_1[\sigma]$ and $\sigma(x_1)\tight=i$.
+  Applying Lemma\:\ref{lem:connected-constraint-translation},
+  with $\eta,\phi_1, x_1$, and $i_1$,
+  yields
+  $\eta,i_1\tight\models\AcycConn(T_{\phi_1}^{x_1},x_1)$.
+  Similarly,
+  for each $2\tight\le j\tight\le k$,
+  $\eta\tight\models\phi_j[\sigma]$ and
+  for some $i_j\tight\in\N$,
+  $\sigma(x_j)\tight=i_j$.
+  Applying Lemma\:\ref{lem:connected-constraint-translation}
+  with $\eta,\phi_j, x_j$ and $i_j$
+  yields
+  $\eta,i_j\models\AcycConn(T_{\phi_j}^{x_j},x_j)$.
+  Because $\var(\phi_1)$ and $\var(\phi_j)$ are 
+  disjoint for each $j\tight\neq 1$,
+  the instants $i_1$ and $i_j$ are independent.
+  Thus, the values $i_2,...,i_k$ are arbitrarily ordered
+  with respect to $i_1$ (and each other),
+  so
+  $\eta,i_1\tight\models\textsf{P}\AcycConn(T_{\phi_j}^{x_j},x_j)\lor
+  \textsf{F}\AcycConn(T_{\phi_j}^{x_j},x_j)$
+  for each $2\tight\le j\tight\le k$.
+  Combining these with conjunction and
+  $\eta,i_1\models\AcycConn(T_{\phi_1}^{x_1},x_1)$
+  yields $\eta, i \models \Acyc(T_\phi^{x},x)$.
+  
+  For the converse,
+  assume $\eta, i \models \Acyc(T_\phi^{x},x)$.
+  By the definition of $\Acyc$, we have $\eta, i \models \AcycConn(T_{\phi_1}^{x_1},x_1) \land
+    \bigwedge_{2\le j \le k}
+    \left(\textsf{P}\AcycConn(T_{\phi_j}^{x_j},x_j)\!\lor
+  \textsf{F}\AcycConn(T_{\phi_j}^{x_j},x_j)\right)$.
+  Then, $\eta, i\models \AcycConn(T_{\phi_1}^{x_1},x_1)$
+  and by the semantics of the $\textsf{P}$ and $\textsf{F}$ operators,
+  for some $i_2,...,i_k$, $\eta, i_j\models \AcycConn(T_{\phi_j}^{x_j},x_j)$.
+  Applying Lemma\:\ref{lem:connected-constraint-translation}
+  to the above statement for $\eta, \phi_1$, $x_1$, and $i$ yields $\eta \models \phi_1[\sigma_1]$
+  and $\sigma_1(x_1)=i$
+  for some assignment $\sigma_1$
+  and for $\phi_i$, $x_j$, and $i_j$ for $2 \leq j \leq k$,
+  Lemma\:\ref{lem:connected-constraint-translation} yields
+  $\eta, i_j \models \eta \models \phi_i[\sigma_i]$
+  for some assignment $\sigma_i$.
+  Because $\phi_1,\dots,\phi_k$ are pairwise disconnected,
+  $\var(\phi_1),\dots,\var(\phi_k)$ are pairwise disjoint.
+  Then there is an assignment $\sigma$
+  such that $\sigma(v)=\sigma_j(v)$ for each $v\in\var(\phi_j)$.
+  Because $\phi=\phi_1\cup\dots\cup\phi_k$,
+  it follows that $\eta \models \phi[\sigma]$.
+\end{proof}
+
+\begin{examp}\label{ex:disconnected-cons}
+  Consider a constraint $\textsc{paid}\tight=\{\Request@x$,
+  $\Schedule@y$, $\Payment@z$,
+  $x\tight{\leq_3}y\}$ 
+  that selects a trio of timestamps
+  to satisfy one gap atom.
+    Note that $\textsc{paid}$ is acyclic, not connected,
+    and can be partitioned into connected constraints:
+
+    $\psi_{1}\tight=\{\Request@x$,
+    $\Schedule@y,x\tight{\leq_3}y\}$
+    and 
+    $\psi_{2}\tight=\{\Payment@z\}$.
+    For these two constraints,
+    $\AcycConn(T_{\psi_{1}}^{x},x)\tight=\Request
+    \land{\sf X}^3{\sf F}\ \Schedule$
+    and
+    $\AcycConn(T_{\psi_{2}}^{z},z)\tight=\Payment$.
+    Picking $x$ to anchor
+    the translation yields: 
+     
+    $
+    \def\arraystretch{1.25}
+    \begin{array}{r@{~}c@{~}l}
+     \Acyc(T_{\textsc{paid}}^x,x)&=&\AcycConn(T_{\psi_{1}}^{x},x)
+                                     \\*[-2mm]
+      &&\hspace*{1cm}\land \Big({\sf P}\AcycConn(T_{\psi_{2}}^{z},z)
+     \tight{\lor}\tight
+     {\sf F}\AcycConn(T_{\psi_{2}}^{z},z)\Big)
+      \\
+      &=&
+      (\Request
+    \land{\sf X}^3{\sf F}\ \Schedule)
+    \land({\sf P}\ \Payment \lor {\sf F}\ \Payment)
+    \end{array}
+    $
+  \end{examp}
+  
+We now turn to the main technical result
+of the chapter:
+translating singly-linked, acyclic rules.
+  
+A dataless rule $\phi\tight\rightarrow\psi$
+is {\em singly-linked}
+if
+$\phi$ and $\psi$
+share at most one variable.
+Recall that
+an enactment $\eta$
+satisfies a rule $\phi\tight\rightarrow\psi$
+if for every assignment $\sigma$ where $\eta\models\phi[\sigma]$,
+there is some assignment $\sigma'$
+that extends $\sigma$
+such that $\eta\models\psi[\sigma']$.
+When
+$\phi$ and $\psi$ share one variable,
+the key idea in translating rules is
+joining the LTL translations of $\phi$ and $\psi$ 
+at an instant corresponding to their common variable.
+The following example illustrates this idea.
+
+
+\begin{examp}\label{ex:rule-translation}
+  Consider the constraint \textsc{Rental} in
+  Example\:\ref{ex:manual-translation}
+  and a constraint ${\textsc{Billing}}=
+  \{\Payment@u,\Receipt@v,u\tight{\leq_0} v,y\tight{\geq_7}u\}$.
+  It is satisfied when a \Payment\ event
+  is simultaneous with or followed by a \Receipt,
+  and the \Payment\ instance is no later than some time $v{+}7$.
+  Note the timestamps in the $\textsc{Billing}$ constraint
+  are limited by the time \Schedule\ occurs
+  in the \textsc{Rental} constraint.
+  
+  The rule {\TimelyPayment} is expressed as:
+  $
+  {\textsc{Rental}}\tight\rightarrow\textsc{Billing}.
+  $
+  This rule is singly-linked and acyclic because
+  the union of its constraints is acyclic and
+  $y$ is the only variable the constraints share.
+  Note that ${\textsc{Rental}}$ is closed,
+  but ${\textsc{Billing}}$ is not.
+  However,
+  $\textsc{Billing}'\tight=
+  \textsc{Billing}\tight\cup\{\Schedule@y\}$ is closed.
+  In Fig.\:\ref{fig:timely-payment-rule-tree},
+  the graphs of ${\textsc{Rental}}$ and
+  of $\textsc{Billing}'$ are shown,
+  with a dotted line indicating that $\textsc{Billing}'$
+  has been extended with the event atom from the shared variable $y$.
+
+  We translate
+  $\textsc{Rental}$ and $\textsc{Billing}'$
+  using the $\Acyc$ function anchored at $y$:
+  $$
+  \begin{array}{@{}l@{}}
+  \Acyc(T_{\textsc{Rental}}^{y},y) =
+    \Schedule\tight\land
+    \displaystyle
+    ((\hspace*{-2mm}\bigvee_{-10\leq j\leq -1}\hspace*{-4mm}{\sf X}^j\ \Request)
+    \tight\land
+    {\sf X}^5{\sf P}
+    (\Compute\tight\land{\sf F}\ \Terminate))
+  \\
+    \Acyc(T_{\textsc{Billing}'}^{y},y) =
+    \Schedule\tight\land{\sf X}^{7}{\sf P}
+    (\Payment\land{\sf F}\ \Receipt)
+  \end{array}
+  $$
+
+  {\TimelyPayment} expresses
+  the requirement that each assignment
+  that assigns $y$ the instant $i$
+  and
+  satisfies $\textsc{Rental}$ for an enactment
+  can be extended to satisfy $\textsc{Billing}'$.
+  Using Lemma\:\ref{lem:acyclic-constraint-translation},
+  this is equivalent to requiring
+  that each instant $i$ in the enactment's trace
+  that satisfies
+  $\Acyc(T_{\textsc{Rental}}^{y},y)$
+  also satisfies $\Acyc(T_{\textsc{Billing}'}^y,y)$.
+  We use implication
+  to reflect this requirement with respect to the instant $i$.
+  Because 
+  $y$ can be assigned an arbitrary timestamp,
+  we place the implication in the scope
+  of an LTL global operator.
+  The translation of {\TimelyPayment} is
+  ${\sf G}(
+  \Acyc(T_{\textsc{Rental}}^{y},y)
+  \rightarrow
+  \Acyc(T_{\textsc{Billing}'}^{y},y))$
+  \end{examp}
+
+\begin{figure}[t]\centering
+  \scalebox{.75}{
+  \begin{tikzpicture}[-,>=stealth',shorten
+  >=1pt,auto,node distance=3cm,
+        thick,main node/.style={circle,draw,font=\sffamily\normalsize\bfseries}]
+    \node[main node, label={\Request}] (1) {$x$};
+    \node[main node, label={\Schedule}] (2) [right=3.5cm of 1] {$y$};
+    \node[main node, label={\Compute}] (3) [above right=5mm and 3.5cm of 2] {$z$};
+    \node[main node, label={\Terminate}] (6) [right=3.5cm of 3] {$w$};
+    \node[main node, label={\Payment}] (4) [below right=5mm and 3.5cm of 2] {$u$};
+    \node[main node, label={\Receipt}] (5) [right=3.5cm of 4] {$v$};
+    \path[->, every node/.style={font=\sffamily\normalsize}]
+      (2) edge node [align=center] {$\{x \leq_1 y, x \geq_{10} y\}$} (1)
+      (2) edge node [align=center, pos=0.8,] {$\{y \geq_{5} z\}$} (3)
+      (3) edge node [align=center] {$\{z\leq_0 w\}$} (6)
+      (4) edge node [align=center] {$\{u \leq_0 v\}$} (5);
+      \path[->, dashed]
+      (2) edge node [align=center, pos=0.35] {$\{y {\geq_7} u\}$} (4);
+  \end{tikzpicture}}
+  \caption{The tree for {\TimelyPayment} built from trees for ${\textsc{Rental}}$ and ${\textsc{Billing}}$, rooted at $y$}
+  \label{fig:timely-payment-rule-tree}
+\end{figure}  
+
+The translation in Example\:\ref{ex:rule-translation}
+generalizes to a translation function $\SingleLinkedAcyclicRuleToLTL$ for singly-linked, acyclic rules,
+given below:
+
+$\SingleLinkedAcyclicRuleToLTL(\phi\tight\rightarrow\psi)=$
+$$\left\{
+  \begin{array}{@{\,}l@{~~~~~~~}l@{}}
+    {\sf G}(\Acyc(T_\phi^x,x)\tight\rightarrow\Acyc(T_{\psi'}^x,x)) &
+      \mbox{If $\phi$ and $\psi$ share variable }x
+    \\
+    \multicolumn{2}{@{\,}l}{
+    {\sf G}(\Acyc(T_\phi^x,x)\tight\rightarrow\!\left(
+    {\sf P}\Acyc(T_\psi^z,z)
+    \lor{\sf F}\Acyc(T_\psi^z,z)\right))} \\*[-1.5mm]&
+      \mbox{Otherwise, with }z\tight\in \var(\psi)
+  \end{array}\right.
+$$
+
+Let $\phi\tight\rightarrow\tight\psi$ be a singly-linked, acyclic rule.
+In the first case, $\phi$ and $\psi$ share a variable $x$.
+Let $\psi'$ be the union of $\psi$ and
+the set of event atoms in $\phi$ with $x$.
+Note that $\psi'$ is closed.
+We obtain translations
+$\Acyc(T_{\phi}^x,x)$ and $\Acyc(T_{\psi'}^{x},x)$
+of
+$\phi$ and $\psi'$ (resp.)
+anchored at $x$.
+Then $\SingleLinkedAcyclicRuleToLTL(\phi\rightarrow\psi)$ is 
+$\textsf{G}(\Acyc(T_\phi^x,x)\tight\to
+\Acyc(T_{\psi'}^x,x))$
+as shown in the above.
+
+When $\phi$ and $\psi$
+have no common variables,
+the lack of a shared variable
+means the instant(s) satisfying $\Acyc(T_\psi^z,z)$ 
+is independent of the instant(s)
+satisfying $\Acyc(T_\phi^x,x)$,
+so $\Acyc(T_\psi^z,z)$ can be satisfied 
+anywhere in the trace relative to $\Acyc(T_\phi^x,x)$,
+resulting in the second formula above.
+
+The following theorem establishes
+key properties of $\SingleLinkedAcyclicRuleToLTL$.
+
+\begin{thm}\label{thm:rule-translation}
+  Let $\eta$ be an enactment,
+  $\phi\rightarrow\psi$ a singly-linked, acyclic rule.
+  The following are equivalent:
+  \begin{enumerate}
+  \item $\eta\models \phi\rightarrow\psi$
+  \item $\eta,0\models\SingleLinkedAcyclicRuleToLTL(\phi\rightarrow\psi)$
+  \end{enumerate}
+  and
+  $|\SingleLinkedAcyclicRuleToLTL(\phi\rightarrow\psi)|$ is $O(2^{|\phi\rightarrow\psi|^{2}})$.
+  
+  Also,
+  for a set of rules $R$,
+  the following statements are equivalent:
+  \begin{enumerate}
+  \item[3.] $\eta\models R$
+  \item[4.] $\eta,0\models \bigwedge_{r \in R} \SingleLinkedAcyclicRuleToLTL(r)$
+  \end{enumerate}
+\end{thm}
+
+\begin{proof}
+First, we show that (1) implies (2).
+Assume $\eta\models\phi\tight\rightarrow\psi$.
+We consider two cases for the variables in $\phi$ and $\psi$.
+
+\underline{Case 1}:
+$\phi$ and $\psi$ share some variable $x$.
+
+From the definition,
+$\SingleLinkedAcyclicRuleToLTL(\phi\tight\rightarrow\psi)=
+{\sf G}(\Acyc(T_\phi^x,x)$
+$\rightarrow\Acyc(T_\psi^x,x))$.
+To show
+$\eta,0\tight\models \SingleLinkedAcyclicRuleToLTL(\phi\tight\rightarrow\psi)$
+it is sufficient to show that for every instant $i$ of the trace,
+if $\eta,i\models\Acyc(T_\phi^x,x)$,
+then $\eta, i\models\Acyc(T_\psi^x,x)$.
+
+Let $i$ be an arbitrary instant of $\eta$ such that
+$\eta, i\models\Acyc(T_\phi^x,x)$.
+By Lemma\:\ref{lem:acyclic-constraint-translation},
+there is an assignment $\sigma$ such $\eta\models\phi[\sigma]$
+and $\sigma(x)\tight=i$.
+By assumption $\eta\tight\models\phi\tight\rightarrow\psi$,
+there is some assignment $\sigma'$ that
+extends $\sigma$ (i.e., $\sigma'(x)\tight=i$)
+such that $\eta\models\psi[\sigma']$.
+Applying Lemma\:\ref{lem:acyclic-constraint-translation} again
+to $\eta\models\psi[\sigma']$ and $\sigma'(x)\tight=i$,
+yields $\eta, i \models \Acyc(\psi,x)$.
+
+\underline{Case 2}:
+$\phi$ and $\psi$ share no variables.
+
+Let 
+$x\tight\in\var(\phi)$ and $z\tight\in\var(\psi)$.
+Applying $\SingleLinkedAcyclicRuleToLTL$,
+it suffices to show that
+for each instant $i$ where $\Acyc(T_\phi^x,x)$ is satisfied,
+$\textsf{P}\Acyc(T_\psi^z,z) \lor \textsf{F} \Acyc(T_\psi^z,z)$
+is also satisfied at $i$,
+i.e., $\Acyc(T_\psi^z,z)$ is satisfied somewhere in the trace.
+Let $i\in \mathbb{N}$.
+Assume $\eta,i\models\Acyc(T_\phi^x,x)$.
+By Lemma\:\ref{lem:acyclic-constraint-translation}, 
+there is an assignment $\sigma$ such that
+$\eta\models\phi[\sigma]$ and $\sigma(x)\tight=i$.
+From the assumption that $\eta\models\phi\tight\rightarrow\psi$,
+there is an assignment $\sigma'$
+such that $\eta\models\psi[\sigma']$ and $\sigma'(z)\tight=j$.
+Applying Lemma\:\ref{lem:acyclic-constraint-translation} again,
+we have $\eta,j \models \Acyc_{\psi,z}$.
+Either $i \tight\geq j$ and
+thus $\eta, i\models \textsf{P}\Acyc_{\psi,z}$,
+or $i \tight\leq j$ and
+$\eta, i\models \textsf{F}\Acyc(T_\psi^z,z)$.
+In either case, the needed condition is established.
+
+The converse direction is proved similarly.
+
+For the second equivalence between $(3)$and $(4)$,
+note that a set of rules is interpreted as a conjunction,
+matching the outermost LTL conjunction in (4).
+  
+{\it Size of Translation:}
+Let $\gamma(\phi\rightarrow\psi)$ be the size of $\SingleLinkedAcyclicRuleToLTL(\phi\rightarrow\psi)$.
+We first address the size of $\AcycConn$ for $\phi$ and $\psi$,
+which is used in $\Acyc$ and $\SingleLinkedAcyclicRuleToLTL$.
+The tree $T_\phi^x$ used in $\AcycConn$ rooted at an arbitrary $x\in\var(\phi)$.
+Let $y$ be a child of $x$.
+By the definition of $\AcycConn$ and its function $\Gap$,
+$\AcycConn(T_\phi^x, x)$
+contains $\AcycConn(T_\phi^x, y)$ duplicated $m-n+1$ times
+if $\{x + n \leq y, x + m \geq y \}$ is in $\phi$
+for some gaps $n,m$
+and
+duplicated only once if $\phi$ has just one gap for $x$ and $y$.
+Then, the resulting LTL formulas are larger wrt the gaps for $x$ and $y$
+when $\phi$ contains an $0$-gap lower bound and $m$-gap upper bound between $x$ and $y$.
+Furthermore,
+because $\AcycConn$ is recursive,
+the resulting LTL formulas are larger when $T_\phi^x$ has a larger height
+rather than a larger breadth.
+Thus,
+the largest output of $\AcycConn(T_\phi^x,x)$
+is when $T_\phi^x$ is a path graph with root $x$,
+where for some positive $m$,
+every edge label is $\{ x + 0 \leq y, x + m \geq y \}$.
+When $|var(\phi)|=v$,
+the size $U(v)$ of $\AcycConn(T_\phi^x,x)$ is given by the recurrence relation:
+$U(v) = 1{+}1{+}(m{-}1){+}\frac{m(m+1)}{2}{+}(m{+}1) \cdot U(v-1)$,
+with
+one proposition for the event atom,
+one conjunction operator,
+$m-1$ disjunction operators,
+$\frac{m}{2}(m+1)$ next LTL operators,
+and $(m{+}1)$ copies of $U(v-1)$ (the recursive call).
+Solving this recurrence has a closed form:
+$$U(v) = \sum\limits_{i=1}^{v-1} \prod\limits_{j=1}^{i-1} (m{+}1)
+    + \sum\limits_{i=1}^{v-1}(\prod\limits_{j=1}^{i-1} (m{+}1)) \frac{m}{2}(m+1)
+    = (\frac{m}{2}(m+1) + 1) \sum\limits_{i=1}^{v-1} (m+1)^{i+1}$$
+which simplifies to
+$U(v) = (\frac{m}{2}(m+1)+1)
+(\frac{(m+1)^{v}-(m+1)}{m^2+m})$.
+When $m$ is represented in the input $|\phi|$ in binary, $m \leq 2^{|\phi|}$.
+Using $m \leq 2^{|\phi|}$ and $v \leq |\phi|$,
+we have $U(v) \leq (\frac{(2^{|\phi|})}{2}((2^{|\phi|})+3)+1)
+(\frac{((2^{|\phi|})+1)^{|\phi|}-((2^{|\phi|})+1)}{(2^{|\phi|})^2+(2^{|\phi|})})$.
+Then,
+$U(v)$ and $|\AcycConn(T_\phi^x,x)|$ are $O(2^{|\phi|^{2}})$.
+
+The growth of $\gamma$ follows directly from the size of $\AcycConn$.
+The path graph $T_\phi$ is connected, so $|Acyc(T_\phi^x,x)|$ is $O(|AcycConn(T_\phi^x|))$.
+Then, whether or not $\phi$ and $\psi$ share a variable,
+$\gamma(\phi\rightarrow\psi)$ is $O(|Acyc(T_\phi^x,x)|+|Acyc(T_\psi^z,z)|)$
+for some $z\in\var(\psi)$.
+It follows that that $\gamma(\phi\rightarrow\psi)$ is $O(2^{|\phi|^{2}}+2^{|\psi|^{2}})$.
+Given that $2^{|\phi|^{2}}+2^{|\psi|^{2}} \leq 2^{|\phi|^{2}} \cdot 2^{|\psi|^{2}}$
+and $|\phi|^2 + |\psi|^2 \leq (|\phi|+|\psi|)^2$,
+it follows that 
+$\gamma(\phi\rightarrow\psi)$ is $O(2^{|\phi\rightarrow\psi|^{2}})$.
+Thus,
+this translation for singly-linked, acyclic rules is single-exponential in the size of the rule.
+\end{proof}
+
+Proving $(1)$ and $(2)$ are equivalent in Theorem\:\ref{thm:rule-translation}
+relies on the construction in the proof of
+Lemma\:\ref{lem:acyclic-constraint-translation},
+which connects a satisfying assignment for a constraint
+with one instant in the trace when the constraint's translation is satisfied.
+This is achieved by observing that variables' assigned values
+correspond to instants where
+propositions for associated event names
+and the
+subformulas of the constraint's
+translation are satisfied.
+Also note that
+joining constraints using their shared variable
+ensures assignments
+to the left-hand side of a rule are extended
+by assignments to its right-hand side,
+that assign the same timestamp to the shared variable.
+
+
+\section{All-Order Translation of Singly-Linked Rules}
+\label{sec:all-order-translation}
+
+Now we present a more general translation function,
+which translates singly-linked, but not necessarily acyclic, rules.
+This removes the acyclicity requirement 
+found in the previous section,
+though the space complexity of the LTL formula increases.
+To achieve this,
+we decompose constraints
+into an equivalent disjunction of ``primitive'' constraints,
+and translate each primitive constraint.
+Finally, we note that this second translation algorithm
+that doesn't produce past-time LTL operators
+for a subset of singly-linked rules.
+
+\smallskip
+
+Let $V$ be a finite set of variables.
+An {\it enumeration} of $V$
+is an ordered sequence without repetition of all elements of $V$.
+
+\begin{deff}
+  Let $\phi$ be a constraint,
+  $x_1,...,x_n$ an enumeration $s$ of $\var(\phi)$.
+  A constraint $p$ is
+  {\em primitive for $\phi$ with respect to $s$} if
+  (i) $\var(p)\tight=\var(\phi)$,
+  (ii) $p$ and $\phi$ have the same event atoms,
+  and 
+  (iii) for each $i\tight\in[1..(n{-}1)]$,
+  $p$ contains exactly one formula of form
+  $x_i{+}b\tight=x_{i+1}$
+  for an integer $b\tight\in[0..\maxgap(\phi)]$
+  or $x_i{+}\maxgap(\phi)\tight<x_{i+1}$,
+  and
+  (iv) $p\land\phi$ is satisfiable.
+  Define $\Prim(\phi)$ as the set of all primitive constraints
+  for $\phi$ with respect to some enumeration of $\var(\phi)$.
+\end{deff}
+
+Because constraints are linear inequalities,
+applying the Fourier-Motzkin elimination method \cite{dantzig1972fourier}
+to the gap atoms of $p$ and $\phi$ yields $True$
+if and only if $p \land \phi$ is satisfiable, i.e., condition (iv).
+
+\begin{examp}\label{ex:start}
+  Consider the constraint
+
+  $
+    \phi_{\textsc{start}}=\{
+    \Request@x,
+    \Schedule@y,
+    \Compute@z,
+    x \tight+2\leq z,
+    y \tight+4\geq x,
+    y \tight+7\geq z
+    \}
+  $
+   
+  \noindent The constraint $p\tight=\{\Request@x, \Schedule@y, \Compute@z,
+  x{+}8\tight<y,y{+}1\tight=z\}$
+  is primitive for $\phi_{\textsc{start}}$
+  with respect to the enumeration $x, y, z$.
+\end{examp}
+
+\begin{lemma}\label{lem:primitive}
+  Let $\phi$ be a constraint. The following hold:
+  \begin{enumerate}
+  \item
+    $|\Prim(\phi)|$ is $O(|\phi|!\cdot 2^{|\phi|^{2}})$, i.e., $\Prim(\phi)$ is finite, and
+  \item
+    $\phi\equiv\bigvee\Prim(\phi)$.
+  \end{enumerate}
+  where $\bigvee\Prim(\phi)$ is the disjunction
+  of all elements in $\Prim(\phi)$.
+\end{lemma}
+
+\begin{proof}
+(1) follows from definition of primitive constraints;
+there are $|\var(\phi)|!$ enumerations of $\var(\phi)$.
+For each gap between the $|\var(\phi)|-1$ pairs of consecutive variables in an enumeration,
+there are $\maxgap(\phi)+2$ possible gaps.
+Then, there are, at most, $(|\maxgap(\phi)|+2)^{(|\var(\phi)|-1)}$ primitive constraints
+for each of the $|\var(\phi)|!$ enumerations.
+Note that
+$\var(\phi) \leq |\phi|$
+and
+$\maxgap(\phi) \leq 2^{|\phi|}$,
+so
+$|\Prim(\phi)|\leq |\phi|!\cdot (2^{|\phi|}+2)^{|\phi|-1}$.
+Then, $|\Prim(\phi)|$ is $O(|\phi|!\cdot 2^{|\phi|^{2}})$.
+
+For (2),
+assume for some assignment $\sigma$,
+$\eta\models\phi[\sigma]$.
+Without loss of generality,
+there is an enumeration $e$ of $\var(\phi)$
+and a set of gap atoms bounded by $\maxgap(\phi)+1$ between consecutive variables
+in $e$ such that $\sigma$ satisfies these gap atoms.
+This enumeration and set of gaps,
+along with $\phi$'s event atoms,
+form a primitive constraint $p$ in $\Prim(\phi)$
+such that $\eta\tight\models p[\sigma]$.
+
+Alternatively,
+assume $\bigvee\Prim(\phi)$ is satisfied by some assignment $\sigma$.
+Then,
+there is some primitive constraint $p$ 
+satisfied by $\sigma$.
+Let $g$ be an arbitrary gap atom in $\phi$ with variables $x$ and $y$.
+Note that $p$ fixes the gap between $x$ and $y$
+as either exactly an integer from $[0..\maxgap(\phi)]$
+or at least $\maxgap(\phi){+}1$.
+By definition,
+$\phi\wedge p$ is satisfiable,
+so this gap is consistent with $g$.
+Thus, $\sigma$ satisfies $g$.
+Finally, 
+$\phi$ and $p$ contain the same set of event atoms.
+Then,
+$\eta\models\phi[\sigma]$.
+\end{proof}
+
+A key observation in
+the proof of Lemma\:\ref{lem:acyclic-constraint-translation}
+is the assignment identifies timestamps where subformulas of $\AcycConn$ are satisfied,
+which correspond to timestamps for event atoms.
+A second important observation
+is that if
+each (non-root) node in $T_\phi^x$ must take a timestamp greater than
+or equal to its parent for $\phi$ to be satisfied,
+then $\AcycConn(T_\phi^x,x)$ has no past-time LTL operators,
+which followed from the definition of the $\Gap$ function.
+The second observation is used later in a translation without
+past operators for a subclass of rules
+(Theorem\:\ref{thm:futureRule}).
+
+\smallskip
+
+Note that
+Lemma\:\ref{lem:primitive} allows decomposing
+all constraints into a finite set of primitive constraints.
+Each primitive constraint is acyclic and connected.
+Then, translating an arbitrary constraint
+can use {\AcycConn} applied to each primitive constraint,
+joining the resulting LTL formulas with disjunction.
+
+Let $\phi$ be a constraint and
+$x$ an arbitrary variable in $\var(\phi)$ with
+$T^x_{\phi}$ a derived tree.
+The following definition for a function $\ConstraintToLTL$
+maps $\phi$ and $x$ to an LTL formula:
+\[\textstyle
+\ConstraintToLTL(\phi,x)=\bigvee_{p \in \Prim(\phi)}\AcycConn(T_p^x,x)
+\]
+
+The following property of $\ConstraintToLTL$
+characterizes one way it can be applied.
+
+\begin{lemma}\label{lem:primitive-ltl}
+  Let $\eta$ be an enactment,
+  $\phi$ a constraint,
+  $x$ a variable in $\var(\phi)$, and
+  $i\in\N$ a timestamp.
+  The following are equivalent:
+  \begin{enumerate}
+  \item
+    There is some assignment $\sigma$
+    such that $\eta\models\phi[\sigma]$ and $\sigma(x)=i$.
+  \item
+    $\eta,i\models\ConstraintToLTL(\phi,x)$
+  \end{enumerate}
+\end{lemma}
+
+\begin{proof}
+By Lemma\:\ref{lem:primitive},
+a constraint $\phi$ is equivalent
+to a disjunction of its primitive constraints.
+Using an arbitrary variable $x$ in $\phi$ to root the $\AcycConn$ translation,
+Lemma\:\ref{lem:acyclic-constraint-translation}
+equates the satisfaction of a primitive constraint $p$
+containing variable $x$
+with the satisfaction of the LTL formula $\AcycConn(T_p^x,x)$.
+Finally, $\ConstraintToLTL(\phi,x)$ collects the $\AcycConn$ translations of
+the primitive constraints for $\phi$ as a disjunction.
+\end{proof}
+
+$\ConstraintToLTL$ translates rules
+that share no variables in the following way:
+let $\phi\tight\rightarrow\psi$ be a
+singly-linked rule whose constraints share no variables.
+Let $y,z$ be arbitrary variables in $\var(\phi),\var(\psi)$, respectively.
+According to the rule semantics,
+when $\phi$ is satisfied by some assignment $\sigma_\phi$
+with $\sigma_\phi(y)=i$ for some $i\in\N$,
+there must be an assignment $\sigma_\psi$
+that satisfies $\psi$
+such that $\sigma_\psi(z)=j$ for some $j\in\N$.
+By Lemma\:\ref{lem:primitive-ltl},
+this corresponds to the condition that
+when $\ConstraintToLTL(\phi,y)$ is satisfied at instant $i$,
+$\ConstraintToLTL(\psi,z)$ is satisfied at instant $j$.
+Because $y$ is arbitrary variable in $\phi$
+and is not used in $\psi$,
+the instant $j$
+satisfying $\ConstraintToLTL(\psi,z)$
+is not necessarily related to $i$.
+Then, enforcing $\phi\rightarrow\psi$
+is equivalent to checking that
+if $\ConstraintToLTL(\phi,y)$ is satisfied (somewhere),
+then $\ConstraintToLTL(\psi,z)$ is also satisfied (somewhere).
+It follows that:
+
+
+\begin{lemma}\label{lem:rule-translation}
+Let $\eta$ be an enactment,
+$\phi\tight\to\psi$ a singly-linked rule with no shared variables,
+$y$ a variable in $\var(\phi)$, and
+$z$ a variable in $\var(\psi)$.
+The following are equivalent:
+\begin{enumerate}
+\item $\eta \models \phi\tight\rightarrow\psi$
+\item $\eta,0\models{\sf F}\,\ConstraintToLTL(\phi,y)\tight\rightarrow{\sf F}\,\ConstraintToLTL(\psi,z)$
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+Let $\sigma$ be an assignment.
+Assume $\eta\models\phi[\sigma]$.
+By Lemma\:\ref{lem:primitive-ltl}
+the trace $\eta$ satisfies $\ConstraintToLTL(\phi,y)$
+for some instant $i\tight\in\N$,
+i.e. $\eta,0\tight\models{\sf F}\ConstraintToLTL(\phi,y)$.
+If $\eta\tight\models\phi\tight\rightarrow\psi$,
+there must be an assignment $\sigma'$ such that
+$\sigma'(y)\tight=j$ for some timestamp $j\tight\in\N$.
+Equivalently, by Lemma\:\ref{lem:primitive-ltl},
+the trace $\eta$ must satisfy
+$\ConstraintToLTL(\psi,z)$ at instant $j$,
+i.e. $\eta,0\models{\sf F}\ConstraintToLTL(\psi,z)$.
+
+The converse follows from the same reasoning.
+\end{proof}
+
+The above translation applies to rules that share no variables.
+Next we translate singly-linked rules whose constraints
+share one variable.
+
+$\ConstraintToLTL$ translates rules whose constraints
+share one variable as follows:
+let $\phi\tight\rightarrow\psi$ be a singly-linked rule
+whose constraints share the variable $y$.
+By Lemma\:\ref{lem:primitive-ltl},
+if $\ConstraintToLTL(\phi,y)$ and $\ConstraintToLTL(\psi,y)$ are satisfied
+at the same timestamp $i$ in a trace,
+there is a pair of assignments $\sigma_\phi$ and $\sigma_\psi$
+that satisfy $\phi$ and $\psi$ respectively,
+such that these assignments agree on $y$,
+i.e. $\sigma_\phi(y)\tight=\sigma_\psi(y)\tight=i$.
+Then, to identify satisfying assignments
+for $\phi$ and $\psi$ that agree on $y$,
+the formulas 
+$\ConstraintToLTL(\phi,y)$ and $\ConstraintToLTL(\psi,y)$
+are placed in the same temporal scope.
+
+This motivates translating a singly-linked rule
+$\phi\tight\to\psi$
+with common variable $y$
+to an LTL formula
+$\ConstraintToLTL(\phi,y)\tight\rightarrow\ConstraintToLTL(\psi,y)$.
+The global operator {\sf G}
+ensures the LTL formula covers all timestamps $y$ can take.
+
+
+\begin{thm}\label{thm:rule-ltl-t1}
+  Let $\eta$ be an enactment and
+  $\phi\tight\to\psi$ a singly-linked rule
+  with a shared variable $y$.
+  The following are equivalent:
+  \begin{enumerate}
+  \item $\eta \models \phi\tight\rightarrow\psi$
+  \item $\eta,0\models {\sf G}
+    (\ConstraintToLTL(\phi,y)\tight\rightarrow\ConstraintToLTL(\psi,y))$
+  \end{enumerate}
+\end{thm}
+
+\begin{proof}
+Let $i\tight\in\N$ be a timestamp
+and $\sigma$ be an assignment
+such that $\sigma(y)\tight=i$.
+Assuming $\eta\models\phi[\sigma]$,
+by Lemma\:\ref{lem:primitive-ltl}
+the trace $\eta$ satisfies $\ConstraintToLTL(\phi,y)$ at instant $i$.
+If $\eta\tight\models\phi\tight\rightarrow\psi$,
+there must be an assignment $\sigma'$ such that
+$\sigma'(y)\tight=i$
+and $\eta\models\psi[\sigma']$.
+According to Lemma\:\ref{lem:primitive-ltl},
+the trace $\eta$ must satisfy
+$\ConstraintToLTL(\psi,y)$ at instant $i$,
+leading to
+$\eta,i\tight\models \ConstraintToLTL(\phi,y)\tight\rightarrow\ConstraintToLTL(\psi,y)$.
+The enclosing {\sf G} ensures that the above holds for all such timestamps $i$.
+\end{proof}
+
+\smallskip
+
+In the remainder of the section,
+we develop a translation $\Unroll$ for the entire subclass of singly-linked rules.  
+We start by looking at a singly-linked rule with a primitive body.
+Let $p\tight\rightarrow\psi$ be a singly-linked rule
+where $p$ is a primitive constraint.
+Without loss of generality,
+let $x_1,...,x_n$ be the enumeration in $p$.
+For each subset $V\tight\subseteq\var(\phi)$,
+$\phi|_V$ denotes the constraint obtained from $\phi$
+after removing all atoms involving a variable not in $V$.
+Note that $p|_{x_1,...,x_n}\tight=p$.
+For each $j\tight\in[1..n]$,
+define the following function $\Unroll$ to map
+$p|_{x_j,...,x_n}\tight\rightarrow\psi$ to
+an LTL formula
+$\Unroll(p|_{x_j,...,x_n}\tight\rightarrow\psi)$:
+\[
+\begin{array}{ll}
+\bullet\hspace*{1mm}\AcycConn(T_p^{x_j},x_j) \tight\rightarrow
+            \ConstraintToLTL(\psi,x_j) \hfill
+&\quad\mbox{if the shared variable is $x_j$}\\*[1.5mm]
+\bullet\hspace*{1mm}(\displaystyle{\bigwedge_{r@x_j\in p}}\!\!r)
+\rightarrow {\sf X}^b\,\Unroll(p|_{x_{j+1},...,x_n}\tight\rightarrow\psi)
+&\quad\mbox{if the shared variable is not $x_j$}\\*[-1em]
+&\quad\mbox{and $p$ contains $x_j{+}b\tight=x_{j+1}$}\\*[.5mm]
+\bullet\hspace*{1mm}(\displaystyle{\bigwedge_{r@x_j\in p}}\!\!r)
+\rightarrow {\sf X}^{b+1}{\sf G}\,\Unroll(p|_{x_{j+1},...,x_n}
+\tight\rightarrow\psi)\hfill
+&\quad\mbox{if the shared variable is not $x_j$}\\*[-1em]
+&\quad\mbox{and $p$ contains $x_j{+}b\tight<x_{j+1}$}
+\end{array}
+\]
+
+Note that $\Unroll$ only introduces
+past-time operators {\sf X$^{-1}$} and {\sf P}
+within $\AcycConn$ and $\ConstraintToLTL$.
+The $\SingleLinkedAcyclicRuleToLTL$ translation
+uses both the future-time LTL operators,
+{\sf X} and {\sf F}
+and
+the past-time operators
+{\sf X}$^{-1}$ and {\sf P}.
+Many rules
+take the form of
+``if a condition is observed, then another condition must be observed later'';
+we call these {\it future rules},
+also known as {\it strictly sequential rules}~\cite{zaniolo2012logical}.
+
+\begin{deff}
+  A singly-linked, dataless rule $\phi\tight\rightarrow\psi$
+  whose constraints share exactly one variable $y$
+  is a {\it future rule} if
+  $\psi$ implies $y\tight\leq z$
+  for all $z\tight\in\var(\psi)$.
+\end{deff}
+
+Such rules only reference events matching the rule head
+whose timestamps are greater than those for the body.
+This new function $\Unroll$
+avoids the past-time operators {\sf X}$^{-1}$ and {\sf P}
+for ``future'' singly-linked rules.
+This observation is crucial
+in establishing Theorem\:\ref{thm:rule-ltl-t2}.
+We prove that $\Unroll$ produces a correct translation
+in Lemma\:\ref{lem:primitive-rule-gamma}.
+We use the following refined notion of satisfaction:
+Let $\sigma$ be an assignment.
+An enactment $\eta$
+{\em satisfies $\phi \tight\rightarrow \psi$ for $\sigma$}
+if $\eta\models\phi[\sigma]$ implies
+the existence of an assignment $\sigma'$
+such that $\eta\models\psi[\sigma']$ and
+both $\sigma$, $\sigma'$ agree on $\var(\phi)$.
+
+\begin{lemma}\label{lem:primitive-rule-gamma}
+  Let $\eta$ be an enactment,
+  $\phi\tight\rightarrow\psi$ a singly-linked rule 
+  with $\phi,\psi$ sharing the variable $x_k$ ($k\tight\in[1..n]$),
+  $p$ a primitive constraint for $\phi$
+  with respect to the enumeration $x_1,...,x_n$,
+  $j$ an integer with $j\tight\in[1..k]$,
+  and $i$ a timestamp in $\eta$.
+  The following are equivalent:
+  
+  \begin{enumerate}
+  \item
+    $\eta\tight\models p|_{x_j,...,x_n}\tight\rightarrow\psi$
+    for each assignment that assigns $i$ to $x_j$
+  \item
+    $\eta,i \tight\models
+    \Unroll(p|_{x_j,...,x_n}\tight\rightarrow\psi)$
+  \end{enumerate}
+\end{lemma} 
+
+\begin{proof}
+The proof is performed by induction on $j$ with the base case of $j\tight=k$.
+The base case corresponds to
+the first case in the definition for $\Unroll$
+and follows from similar reasoning as Theorem\:\ref{thm:rule-ltl-t1}.
+The inductive steps
+holds by the following reasoning:
+Let $p|_{x_j,...,x_n}$ be
+a constraint $\{r_j@x_j,x_j{+}b\tight=x_{j+1},...\}$.
+Assume the event atom $r_j@x_j$ is satisfied by $\eta$ and
+an assignment that maps $x_j$ to $i$,
+checking $p|_{x_j,...,x_n}\tight\rightarrow \psi$
+for assignments that extend $[x_j\tight\mapsto i]$
+reduces to checking
+$p|_{x_{j+1},...,x_n}\tight\rightarrow \psi$
+for assignments that map $x_{j+1}$ to $i{+}b$,
+because the event atom $r_j@x_j$ and equality $x_j{+}b\tight=x_{j+1}$
+complete the initial portion
+$\{r_j@x_j,x_j{+}b\tight=x_{j+1}\}$ in $p|_{x_j,...,x_n}$.
+The operators ${\sf X}^b$
+prefix the translation of
+$p|_{x_{j+1},...,x_n}\tight\rightarrow \psi$ at instant $i{+}b$.
+Similarly,
+when $p$ contains $x_j{+}b\tight<x_{j+1}$
+and
+the event atom $r_j@x_j$ is satisfied by $\eta$
+with an assignment that maps $x_j$ to $i$,
+checking $p|_{x_j,...,x_n}\tight\rightarrow \psi$
+for assignments that extend $[x_j\tight\mapsto i]$
+reduces to checking 
+$p|_{x_{j+1},...,x_n}\tight\rightarrow \psi$
+for assignments that map $x_{j+1}$ to
+some timestamp$\,{>}i{+}b$.
+The operators ${\sf X}^{b{+}1}{\sf G}$
+to prefix the translation of
+$|p_{x_{j+1},...,x_n}\tight\rightarrow \psi$ 
+at all instants later than $i{+}b$.
+\end{proof}
+
+\smallskip
+
+We now present the following theorem stating
+the equivalence of a singly-linked, dataless rule and 
+its translation using primitive constraints in Theorem\:\ref{thm:rule-ltl-t1}.
+
+\begin{thm}\label{thm:rule-ltl-t2}
+  Let $\eta$ be an enactment and
+  $\phi\rightarrow\psi$ a singly-linked, dataless rule.
+  The following are equivalent:
+  
+  \begin{enumerate}
+  \item
+    $\eta \models \phi\rightarrow\psi$
+  \item
+    $\eta,0 \models \bigwedge_{p\in\Prim(\phi)}
+    {\sf G}\,\Unroll(p\tight\rightarrow\psi)$
+  \end{enumerate}
+  and $|\bigwedge_{p\in\Prim(\phi)}
+    {\sf G}\,\Unroll(p\tight\rightarrow\psi)|$ is
+    $O(|\phi|! \cdot 2^{|\phi|^3}\cdot |\phi| + |\phi|! \cdot |\psi|! \cdot 2^{|\psi|^4+|\phi|^2})$.
+\end{thm}
+
+\begin{proof}
+The constraint $\phi$
+is equivalent to the disjunction of $\Prim(\phi)$
+by Lemma\:\ref{lem:primitive};
+thus checking $\phi\tight\rightarrow\psi$
+can be accomplished by checking $p\tight\rightarrow\phi$
+for each $p\tight\in\Prim(\phi)$.
+By Lemma\:\ref{lem:primitive-rule-gamma},
+$\Unroll(p\tight\rightarrow\psi)$ holds at instant $i$
+if and only if $p\tight\rightarrow\psi$ is satisfied
+for each assignment that assigns timestamp $i$
+to the first variable in $p$.
+Finally,
+$p\tight\rightarrow\psi$ is enforced for all assignments,
+by enforcing $\Unroll(p\tight\rightarrow\psi)$ at all instants
+in $\eta$ with {\sf G}.
+\end{proof}
+
+Now we show that this translation of future rules
+does not contain any past LTL operators.
+
+\begin{thm}\label{thm:futureRule}
+  Let $\phi\tight\rightarrow\psi$ be a future, singly-linked rule.
+  Then, the LTL formula
+  
+  \noindent $\bigwedge_{p \in\Prim(\phi)}\!
+  {\sf G}\,\Unroll(p\tight\rightarrow\psi)$
+  contains no {\sf X}$^{-1}$ nor
+  {\sf P} operators.
+\end{thm}
+
+\begin{proof}
+Consider the definition of $\Unroll$ function and
+let $x_k$ be the shared variable in $\phi\tight\rightarrow\psi$.
+First,
+for a primitive constraint $p$ of $\phi$,
+the translation function $\Unroll(p\rightarrow\psi)$ unrolls $p$
+until it reaches $x_k$,
+inserting only ${\sf X}$ and ${\sf G}$,
+i.e. only future LTL operators.
+
+Second,
+$\Unroll$ translates the portion of $p$
+starting at $x_k$
+as $\AcycConn(p|_{x_k,...,x_n},x_k)$,
+where $x_k$ is the smallest variable in $p|_{x_k,...,x_n}$.
+Similarly, the head of the rule
+is translated as $\ConstraintToLTL(\psi,x_k)$,
+which applies $\AcycConn$
+to each element of $\Prim(\psi)$ and $x_k$.
+The property of being a future rule
+implies that $x_k$ is the smallest variable in $\psi$, i.e.,
+$x_k$ is the smallest variable in each constraint in $\Prim(\psi)$.
+By virtue of its construction,
+$\AcycConn$ inserts only ${\sf X}$ and ${\sf F}$
+when translating a primitive constraint
+from its smallest variable.
+Thus, $\Unroll(p\tight\rightarrow\psi)$
+has no ${\sf X}^{-1}$ nor ${\sf P}$, i.e. no past-time, operators.
+\end{proof}
+
+{\it Size of Translation:}
+Finally, we establish the size of $\bigwedge_{p\in\Prim(\phi)}{\sf G}\,\Unroll(p\tight\rightarrow\psi)$.
+For each primitive constraint $p$ of $\phi$,
+$\Unroll$ unfolds $p$: $p$ has $|\var(\phi)|$ variables,
+so unfolding yields at most $(|\maxgap(\phi)|+1) \cdot {(|\var(\phi)|-1)}$ next operators,
+at most $|\var(\phi)|-1$ global operators, propositions, conjunction, and implication operators each.
+$\Unroll$ also inserts $\ConstraintToLTL(\psi)$ at the variable shared with $p$:
+applying $|\Prim(\psi)|$ from Lemma\:\ref{lem:primitive} with
+the size of $\AcycConn$ established in the proof of Theorem\:\ref{thm:rule-translation},
+it follows that $|\ConstraintToLTL(\psi)|$ is $O(|\psi|! \cdot (2^{|\psi|})^{4})$.
+Note that
+$\var(\phi) \leq |\phi|$
+and
+$\maxgap(\phi) \leq 2^{|\phi|}$,
+and similarly for $\psi$.
+Then,
+$|\Unroll(p\tight\rightarrow\psi)|$ is $O(2^{|\phi|}\cdot|\phi| + |\psi|! \cdot 2^{|\psi|^{4}})$.
+Applying Lemma\:\ref{lem:primitive} capture the conjunction of all $p$ in $\Prim(\phi)$,
+the $\Unroll$ translation of $\phi\rightarrow\psi$ is
+$O(|\phi|! \cdot 2^{|\phi|^3}\cdot |\phi| + |\phi|! \cdot |\psi|! \cdot 2^{|\psi|^4+|\phi|^2})$.
+In summary,
+this translation for singly-linked, dataless rules is double-exponential in the size of the rule.
+
+This concludes our the translation of singly-linked, dataless rules.
+Next, we compare the results of this translation
+and that of the previous section
+with a translation based on Kamp's Theorem,
+showing that both translations
+lower the complexity of the size of the resulting LTL formula.
+
+\section{Related Work}
+\label{sec:comparison}
+
+The technical problem concerning translation of
+(super)classes of rules into LTL is not new and has been discussed
+variously \cite{gabbay1980temporal, gabbay1981expressive, hodkinson1995expressive},
+and in particular by Kamp \cite{kamp1968tense},
+who shows:
+{\em Given any first-order monadic logic of order formula with one free variable,
+there is a temporal logic [LTL]
+formula which is equivalent over Dedekind-complete chains.}
+The natural numbers are a Dedekind-complete chain
+and
+the free variable is interpreted
+as the first timestamp in a trace,
+so
+this result indicates 
+the expressive equivalence of
+first-order logic with monadic predicates and ordering $<$ (FOMLO)
+and LTL with past-time operators over the natural numbers.
+Dataless rules uses event types with no attributes,
+thus these event types constitute monadic predicates
+over the the natural numbers,
+and
+gap atoms can be expressed with ordering relations.
+Additionally,
+each rule has the form
+$\forall \bar{x}.\bar{y}.(\phi(\bar{x},\bar{y})\rightarrow\exists\bar{z}.\psi(\bar{y},\bar{z}))$,
+and a set of rules is interpreted as a conjunction,
+thus dataless rules use the same vocabulary as FOMLO.
+Thus, the following holds by Kamp's Theorem:
+
+\begin{thm}\label{thm:kamp}
+  \cite{kamp1968tense} Every set of dataless rules has an equivalent LTL formula.
+\end{thm}
+
+Rabinovich \cite{rabinovich2014proof} 
+presents a concise proof of Kamp's Theorem
+which provides key pieces of an FOMLO-to-LTL translation algorithm.
+The algorithm applies recursively to FOMLO formulas,
+with the help of a set of auxiliary formulas
+that impose total orderings on the variables in the FOMLO formula.
+This technique is similar to our translation in Section\:\ref{sec:all-order-translation},
+which imposes total orderings on variables.
+However,
+in the translation algorithm in \cite{rabinovich2014proof},
+FOMLO negation triggers an exponential increase in the size of the
+result for each quantifier alternation.
+This yields LTL formulas with size hyper-exponential
+(greater than any exponential function) in the size of the input FOMLO formula.
+In comparison,
+our translations produce equivalent LTL formulas that are 
+single- and double-exponential in the size of the input.
+Thus,
+our translations improve
+the size complexity of the resulting LTL formulas,
+which is important for the size of the resulting automata
+for runtime monitoring.
+
+Section\:\ref{sec:motiv-finite-state} describes
+the use of finite state machines to detect violations.
+Many techniques already exist for monitoring event streams against formal specifications,
+especially properties like relative ordering,
+e.g., those easily expressible by LTL or automata.
+{\sc declare} \cite{pesic2007declare}
+is the most common formalism for expressing business rules
+in the business process management community
+and has semantics grounded in future-time LTL.
+Reference \cite{maggi2011monitoring} exhibits runtime monitors
+for {\sc declare} constraints
+with a translation through LTL to finite state automata.
+For general software systems, \cite{havelund2018efficient}
+tracks assignments to subformula of properties for monitoring first-order past LTL properties.
+A limitation of these works is that
+past- and future-time LTL, {\sc declare}, and Linear Dynamic Logic (LDL)
+lack an immediate representation
+of quantitative time constraints,
+e.g., {\em {\tt A} must occur within 5 days of {\tt B}
+and {\tt C} must occur within 2 days of {\tt B} and within 3 days of {\tt A}},
+which must be carefully encoded in automata as the number of quantitative relationships grows.
+More study is needed to understand which quantitative time constraints
+can be expressed in these existing non-quantitative languages;
+this chapter is a step in that direction.
+Alternatively, LTL and LDL have disjunction and negation operators;
+it is not clear what expressivity these operators
+would add to rules.
+
+{\sc declare} is extended with quantitative time constraints
+between pairs of activities \cite{montali2010declarative, westergaard2012looking}.
+Reference \cite{montali2010declarative}
+provides monitoring algorithms derived from Abductive Logic Programming.
+The size of the auxiliary storage used by the resulting monitors is unbounded
+with respect to the size of the execution trace;
+{\it trace-length independence}, where memory usage is bounded regardless of the target trace, 
+is a desirable property of runtime monitors \cite{bauer2013propositional}.
+In our approach,
+the size of the monitor (a finite state machine) for a given set of rules is fixed.
+References \cite{westergaard2012looking} and \cite{montali2013monitoring}
+monitor timed {\sc declare} constraints
+by translating them to Metric Temporal Logic,
+which has a translation to timed automata,
+and event calculus, respectively.
+Our translation from rules to untimed LTL
+allows for monitoring by deterministic finite automata,
+a simpler model of computation than timed automata.
+Additionally,
+{\sc declare} constraints are built from binary relationships between activities,
+while rules can express pre- and post-conditions
+with an arbitrary number of event and gap atoms.
+
+Some temporal logics with quantitative operators 
+have been studied as specification languages
+for monitoring general software systems.
+Reference \cite{li2018mltl} employs formula rewriting to track satisfaction
+for Mission-time Linear Temporal Logic.
+Reference \cite{basin2017almost} employs formula rewriting
+to monitor the subclass of Metric Temporal Logic
+with bounded future formulas, i.e., all temporal modalities have a deadline,
+which is not a restriction of our rules.
+Reference \cite{maler2005real} constructs deterministic automata
+for the past-time subset of Metric Temporal Logic
+where all temporal modalities have upper and lower natural number bounds.
+Rules can reference the indefinite past and future of an enactment
+with respect to each timestamp, so they do not have these restrictions.
+More generally, it is not clear which quantitative time features
+are best suited for specifying business rules.
+
+There are many more approaches to enforcing constraints
+on streams of events that are not based on runtime monitoring.
+Simple Temporal Networks (STNs) \cite{dechter1991temporal} use
+networks of events where edges represent
+relative time constraints.
+STNs can be extended to
+Conditional Simple Temporal Networks with Uncertainty (CSTNUs)
+with the conditional constraints
+using some propositional variables and
+uncertainty as ranges for timestamps.
+References \cite{hunsberger2018sound,combi2019conditional,franceschetti2023dynamic}, and 
+study workflows subject to constraint networks for controllability:
+determining if the workflow can be enacted to satisfy the network
+regardless of the duration of the uncontrollable gaps between events.
+\cite{kopke2018gsm+} 
+checks controllability
+for the the Guard Stage Milestone language
+extended with time constraints.
+The controllability problem is different from our problem:
+controllability decides the potential for constraint satisfaction at design-time,
+while our approach decides the observed satisfaction of constraints at runtime.
+Additionally,
+static verification techniques and controllability
+both assume a process model or models for the service exist;
+this chapter assumes no process model,
+only a set of event types being completed,
+which affords more flexibility in choosing which events to monitor.
+
+\section{Chapter Summary}
+\label{sec:conclusion}
+
+This chapter studies the early violation detection problem for dataless rules.
+We describe an approach
+based on translating quantitative constraints to finite state machines.
+We present two translations from rules to LTL formulas,
+one for singly-linked, acyclic, dataless rules
+with the correctness and single-exponential size of the translation established,
+and one for singly-linked, dataless rules
+with the correctness and double-exponential size of the translation established.
+
+Several related problems deserve more research.
+First, exploring the semantics of time
+in formal specification languages
+as well as industry standards
+may improve constraint specification.
+Allowing
+explicit timestamps (e.g., rules with timestamps)
+or implicit timestamps (e.g., LTL),
+past constraints or future constraints,
+and
+discrete or continuous time,
+lead to different suitabilities for applications
+and may incur different complexity for violation detection.
+Also, 
+it may be possible to translate dataless rules directly to automata of smaller size
+or to demonstrate that certain sizes of automata are optimal,
+% Also,
+% formula progression techniques that operates directly on the specification language
+% \cite{barbon2006run,li2018mltl}
+% is an interesting alternative to generating automata.
+while translating larger classes of dataless rules
+may enable violation detection wider classes of applications.
+Finally,
+referencing data in rules is critical for matching information between events;
+the subsequent chapters of this dissertation
+study rules with data.

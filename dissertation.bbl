@@ -1,0 +1,424 @@
+\providecommand{\href}[2]{#2}\begingroup\raggedright\begin{thebibliography}{10}
+
+\bibitem{zhou2022proceedings}
+Y.~Zhou, P.~K. Chrysanthis, V.~Gulisano, and E.~T. Zacharatou, {\em Proceedings
+  of the 16th ACM International Conference on Distributed and Event-based
+  Systems, DEBS 2022, Copenhagen, Denmark, June 27-30, 2022}.
+\newblock Association for Computing Machinery, 2022.
+
+\bibitem{DamaggioDHV:BPM11:verif}
+E.~Damaggio, A.~Deutsch, R.~Hull, and V.~Vianu, {\it Automatic verification of
+  data-centric business processes},  in {\em BPM 2011}, pp.~3--16, 2011.
+
+\bibitem{CalvanesePODS13}
+D.~Calvanese, G.~D. Giacomo, and M.~Montali, {\it Foundations of data-aware
+  process analysis: {A} database theory perspective},  in {\em Proc. ACM Symp.
+  on Principles of Database Systems (PODS)}, pp.~1--12, 2013.
+
+\bibitem{du2014timed}
+Y.~Du, W.~Tan, and M.~Zhou, {\it Timed compatibility analysis of web service
+  composition: A modular approach based on petri nets},  {\em IEEE Transactions
+  on Automation Science and Engineering} {\bf 11} (2014), no.~2 594--606.
+
+\bibitem{BultanSF:IEEEIC}
+T.~Bultan, J.~Su, and X.~Fu, {\it Analyzing conversations of web services},
+  {\em IEEE Internet Computing} {\bf 18} (2006), no.~10.
+
+\bibitem{krotsiani2017cloud}
+M.~Krotsiani, C.~Kloukinas, and G.~Spanoudakis, {\it Cloud certification
+  process validation using formal methods},  in {\em ICSOC 2017}, pp.~65--79,
+  Springer, 2017.
+
+\bibitem{pnueli1977temporal}
+A.~Pnueli, {\it The temporal logic of programs},  in {\em Foundations of
+  Computer Science, 1977., 18th Annual Symposium on}, pp.~46--57, IEEE, 1977.
+
+\bibitem{barringer2010runtime}
+H.~Barringer, Y.~Falcone, B.~Finkbeiner, K.~Havelund, I.~Lee, G.~Pace, G.~Rosu,
+  O.~Sokolsky, and N.~Tillmann, {\em Runtime Verification: First International
+  Conference, RV 2010, St. Julians, Malta, November 1-4, 2010. Proceedings},
+  vol.~6418.
+\newblock Springer, 2010.
+
+\bibitem{bartocci2018introduction}
+E.~Bartocci, Y.~Falcone, A.~Francalanza, and G.~Reger, {\it Introduction to
+  runtime verification},  in {\em Lectures on Runtime Verification}, pp.~1--33.
+\newblock Springer, 2018.
+
+\bibitem{bartocci2019international}
+E.~Bartocci, Y.~Falcone, and G.~Reger, {\it International competition on
+  runtime verification (crv)},  in {\em Tools and Algorithms for the
+  Construction and Analysis of Systems: 25 Years of TACAS: TOOLympics, Held as
+  Part of ETAPS 2019, Prague, Czech Republic, April 6--11, 2019, Proceedings,
+  Part III 25}, pp.~41--49, Springer, 2019.
+
+\bibitem{baresi2005towards}
+L.~Baresi and S.~Guinea, {\it Towards dynamic monitoring of ws-bpel processes},
+   in {\em International Conference on Service-Oriented Computing},
+  pp.~269--282, Springer, 2005.
+
+\bibitem{fernando2017monitoring}
+R.~Fernando, R.~Ranchal, B.~Bhargava, and P.~Angin, {\it A monitoring approach
+  for policy enforcement in cloud services},  in {\em CLOUD 2017},
+  pp.~600--607, IEEE, 2017.
+
+\bibitem{kupferman2001model}
+O.~Kupferman and M.~Y. Vardi, {\it Model checking of safety properties},  {\em
+  Formal methods in system design} {\bf 19} (2001) 291--314.
+
+\bibitem{giannakopoulou2001automata}
+D.~Giannakopoulou and K.~Havelund, {\it Automata-based verification of temporal
+  properties on running programs},  in {\em Proceedings 16th Annual
+  International Conference on Automated Software Engineering (ASE 2001)},
+  pp.~412--416, IEEE, 2001.
+
+\bibitem{bauer2011runtime}
+A.~Bauer, M.~Leucker, and C.~Schallhart, {\it Runtime verification for ltl and
+  tltl},  {\em ACM Transactions on Software Engineering and Methodology
+  (TOSEM)} {\bf 20} (2011), no.~4 1--64.
+
+\bibitem{riccardo2014monitoringfsa}
+R.~De~Masellis, F.~M. Maggi, and M.~Montali, {\it Monitoring data-aware
+  business constraints with finite state automata},  in {\em Proceedings of the
+  2014 International Conference on Software and System Process}, pp.~134--143,
+  2014.
+
+\bibitem{bauer2013propositional}
+A.~Bauer, J.-C. K{\"u}ster, and G.~Vegliach, {\it From propositional to
+  first-order monitoring},  in {\em International Conference on Runtime
+  Verification}, pp.~59--75, Springer, 2013.
+
+\bibitem{ly2015compliance}
+L.~T. Ly, F.~M. Maggi, M.~Montali, S.~Rinderle-Ma, and W.~M. Van Der~Aalst,
+  {\it Compliance monitoring in business processes: Functionalities,
+  application, and tool-support},  {\em Information systems} {\bf 54} (2015)
+  209--234.
+
+\bibitem{ceri1989you}
+S.~Ceri, G.~Gottlob, L.~Tanca, {\em et.~al.}, {\it What you always wanted to
+  know about datalog(and never dared to ask)},  {\em IEEE transactions on
+  knowledge and data engineering} {\bf 1} (1989), no.~1 146--166.
+
+\bibitem{mackey2022rule}
+I.~Mackey and J.~Su, {\it A rule-based constraint language for event streams},
+  in {\em 4th International Workshop on the Resurgence of Datalog in Academia
+  and Industry}, pp.~145--150, 2022.
+
+\bibitem{Re93}
+P.~Z. Revesz, {\it A closed form for datalog queries with integer (gap)-order
+  constraints},  {\em Theoretical Computer Science} {\bf 116} (1993), no.~1
+  117--149.
+
+\bibitem{vardi1986automata}
+M.~Y. Vardi and P.~Wolper, {\it An automata-theoretic approach to automatic
+  program verification},  in {\em Proceedings of the First Symposium on Logic
+  in Computer Science}, pp.~322--331, IEEE Computer Society, 1986.
+
+\bibitem{laroussinie2002temporal}
+F.~Laroussinie, N.~Markey, and P.~Schnoebelen, {\it Temporal logic with
+  forgettable past},  in {\em Logic in Computer Science}, pp.~383--392, IEEE,
+  2002.
+
+\bibitem{gastin2003ltl}
+P.~Gastin and D.~Oddoux, {\it Ltl with past and two-way very-weak alternating
+  automata},  in {\em International Symposium on Mathematical Foundations of
+  Computer Science}, pp.~439--448, Springer, 2003.
+
+\bibitem{kamp1968tense}
+J.~A.~W. Kamp, {\em Tense logic and the theory of linear order}.
+\newblock University of California, Los Angeles, 1968.
+
+\bibitem{rabinovich2014proof}
+A.~Rabinovich, {\it A proof of kamp's theorem},  {\em Logical Methods in
+  Computer Science} {\bf 10} (2014).
+
+\bibitem{cimatti2004bounded}
+A.~Cimatti, M.~Roveri, and D.~Sheridan, {\it Bounded verification of past ltl},
+   in {\em International Conference on Formal Methods in Computer-Aided
+  Design}, pp.~245--259, Springer, 2004.
+
+\bibitem{lichtenstein1985glory}
+O.~Lichtenstein, A.~Pnueli, and L.~Zuck, {\it The glory of the past},  in {\em
+  Workshop on Logic of Programs}, pp.~196--218, Springer, 1985.
+
+\bibitem{dantzig1972fourier}
+G.~B. Dantzig, {\it Fourier-motzkin elimination and its dual},  tech. rep.,
+  Standford University, Department of Operations Research, 1972.
+
+\bibitem{zaniolo2012logical}
+C.~Zaniolo, {\it Logical foundations of continuous query languages for data
+  streams},  in {\em International Datalog 2.0 Workshop}, pp.~177--189,
+  Springer, 2012.
+
+\bibitem{gabbay1980temporal}
+D.~Gabbay, A.~Pnueli, S.~Shelah, and J.~Stavi, {\it On the temporal analysis of
+  fairness},  in {\em Proceedings of the 7th ACM SIGPLAN-SIGACT symposium on
+  Principles of programming languages}, pp.~163--173, 1980.
+
+\bibitem{gabbay1981expressive}
+D.~M. Gabbay, {\it Expressive functional completeness in tense logic
+  (preliminary report)},  in {\em Aspects of philosophical logic}, pp.~91--117.
+\newblock Springer, 1981.
+
+\bibitem{hodkinson1995expressive}
+I.~Hodkinson, {\it Expressive completeness of until and since over dedekind
+  complete linear time},  {\em Modal logic and process algebra} (1995)
+  171--185.
+
+\bibitem{pesic2007declare}
+M.~Pesic, H.~Schonenberg, and W.~M. Van~der Aalst, {\it Declare: Full support
+  for loosely-structured processes},  in {\em EDOC 2007}, pp.~287--287, IEEE,
+  2007.
+
+\bibitem{maggi2011monitoring}
+F.~M. Maggi, M.~Montali, M.~Westergaard, and W.~M. Van Der~Aalst, {\it
+  Monitoring business constraints with linear temporal logic: An approach based
+  on colored automata},  in {\em International Conference on Business Process
+  Management}, pp.~132--147, Springer, 2011.
+
+\bibitem{havelund2018efficient}
+K.~Havelund and D.~Peled, {\it Efficient runtime verification of first-order
+  temporal properties},  in {\em Int. Symp. on Model Checking Software},
+  pp.~26--47, Springer, 2018.
+
+\bibitem{montali2010declarative}
+M.~Montali, M.~Pesic, W.~M. v.~d. Aalst, F.~Chesani, P.~Mello, and S.~Storari,
+  {\it Declarative specification and verification of service choreographies},
+  {\em ACM Transactions on the Web (TWEB)} {\bf 4} (2010), no.~1 1--62.
+
+\bibitem{westergaard2012looking}
+M.~Westergaard and F.~M. Maggi, {\it Looking into the future},  in {\em OTM
+  Confederated International Conferences: On the Move to Meaningful Internet
+  Systems}, pp.~250--267, Springer, 2012.
+
+\bibitem{montali2013monitoring}
+M.~Montali, F.~M. Maggi, F.~Chesani, P.~Mello, and W.~M. van~der Aalst, {\it
+  Monitoring business constraints with the event calculus},  {\em TIST 2013}
+  {\bf 5} (2013), no.~1 17.
+
+\bibitem{li2018mltl}
+J.~Li and K.~Y. Rozier, {\it Mltl benchmark generation via formula
+  progression},  in {\em International Conference on Runtime Verification},
+  pp.~426--433, Springer, 2018.
+
+\bibitem{basin2017almost}
+D.~Basin, B.~N. Bhatt, and D.~Traytel, {\it Almost event-rate independent
+  monitoring of metric temporal logic},  in {\em International Conference on
+  Tools and Algorithms for the Construction and Analysis of Systems},
+  pp.~94--112, Springer, 2017.
+
+\bibitem{maler2005real}
+O.~Maler, D.~Nickovic, and A.~Pnueli, {\it Real time temporal logic: Past,
+  present, future},  in {\em International Conference on Formal Modeling and
+  Analysis of Timed Systems}, pp.~2--16, Springer, 2005.
+
+\bibitem{dechter1991temporal}
+R.~Dechter, I.~Meiri, and J.~Pearl, {\it Temporal constraint networks},  {\em
+  Artificial intelligence} {\bf 49} (1991), no.~1-3 61--95.
+
+\bibitem{hunsberger2018sound}
+L.~Hunsberger and R.~Posenato, {\it Sound-and-complete algorithms for checking
+  the dynamic controllability of conditional simple temporal networks with
+  uncertainty},  in {\em 25th International Symposium on Temporal
+  Representation and Reasoning (TIME 2018)}, Schloss Dagstuhl-Leibniz-Zentrum
+  fuer Informatik, 2018.
+
+\bibitem{combi2019conditional}
+C.~Combi, R.~Posenato, L.~Vigan{\`o}, and M.~Zavatteri, {\it Conditional simple
+  temporal networks with uncertainty and resources},  {\em Journal of
+  Artificial Intelligence Research} {\bf 64} (2019) 931--985.
+
+\bibitem{franceschetti2023dynamic}
+M.~Franceschetti, R.~Posenato, C.~Combi, and J.~Eder, {\it Dynamic
+  controllability of parameterized cstnus},  in {\em Proceedings of the 38th
+  ACM/SIGAPP Symposium on Applied Computing}, pp.~965--973, 2023.
+
+\bibitem{kopke2018gsm+}
+J.~K{\"o}pke, J.~Eder, and J.~Su, {\it Gsm+ t: A timed artifact-centric process
+  model},  in {\em 25th International Symposium on Temporal Representation and
+  Reasoning (TIME 2018)}, pp.~0--0, Schloss Dagstuhl-Leibniz-Zentrum fuer
+  Informatik, 2018.
+
+\bibitem{AHV95}
+S.~Abiteboul, R.~Hull, and V.~Vianu, {\em Foundations of Databases}.
+\newblock Addison-Wesley, 1995.
+
+\bibitem{fagin2005data}
+R.~Fagin, P.~G. Kolaitis, R.~J. Miller, and L.~Popa, {\it Data exchange:
+  semantics and query answering},  {\em Theoretical Computer Science} {\bf 336}
+  (2005), no.~1 89--124.
+
+\bibitem{chen2009parametric}
+F.~Chen and G.~Ro{\c{s}}u, {\it Parametric trace slicing and monitoring},  in
+  {\em International Conference on Tools and Algorithms for the Construction
+  and Analysis of Systems}, pp.~246--261, Springer, 2009.
+
+\bibitem{Siqueria2020}
+G.~Siqueria, ``Log generator.''
+  \url{https://github.com/GabrielSiq/LogGenerator}, 2020.
+
+\bibitem{mackeymultirulemonitor}
+I.~Mackey, {\it multi-rule monitor},  2023.
+
+\bibitem{de2008z3}
+L.~De~Moura and N.~Bjorner, {\it Z3: An efficient smt solver},  in {\em
+  International conference on Tools and Algorithms for the Construction and
+  Analysis of Systems}, pp.~337--340, Springer, 2008.
+
+\bibitem{z3py}
+L.~De~Moura and N.~Bj{\o}rner, {\em Z3Py: Python Interface to the Z3 Theorem
+  Prover}.
+\newblock Microsoft Research, 2021.
+
+\bibitem{maggi2011monitoringcolored}
+F.~M. Maggi, M.~Montali, M.~Westergaard, and W.~M. Van Der~Aalst, {\it
+  Monitoring business constraints with linear temporal logic: An approach based
+  on colored automata},  in {\em International Conference on Business Process
+  Management}, pp.~132--147, Springer, 2011.
+
+\bibitem{maggi2012runtime}
+F.~M. Maggi, M.~Westergaard, M.~Montali, and W.~M. van~der Aalst, {\it Runtime
+  verification of ltl-based declarative process models},  in {\em Runtime
+  Verification: Second International Conference, RV 2011, San Francisco, CA,
+  USA, September 27-30, 2011, Revised Selected Papers 2}, pp.~131--146,
+  Springer, 2012.
+
+\bibitem{maggi2011runtime}
+F.~M. Maggi, M.~Westergaard, M.~Montali, and W.~M. van~der Aalst, {\it Runtime
+  verification of ltl-based declarative process models},  in {\em International
+  Conference on Runtime Verification}, pp.~131--146, Springer, 2011.
+
+\bibitem{dousson2007chronicle}
+C.~Dousson and P.~Le~Maigat, {\it Chronicle recognition improvement using
+  temporal focusing and hierarchization.},  in {\em IJCAI}, vol.~7,
+  pp.~324--329, 2007.
+
+\bibitem{maggi2019compliance}
+F.~M. Maggi, M.~Montali, and U.~Bhat, {\it Compliance monitoring of
+  multi-perspective declarative process models},  in {\em 2019 IEEE 23rd
+  International Enterprise Distributed Object Computing Conference (EDOC)},
+  pp.~151--160, IEEE, 2019.
+
+\bibitem{de2013runtime}
+R.~De~Masellis and J.~Su, {\it Runtime enforcement of first-order ltl
+  properties on data-aware business processes},  in {\em International
+  Conference on Service-Oriented Computing}, pp.~54--68, Springer, 2013.
+
+\bibitem{barringer2012quantified}
+H.~Barringer, Y.~Falcone, K.~Havelund, G.~Reger, and D.~Rydeheard, {\it
+  Quantified event automata: Towards expressive and efficient runtime
+  monitors},  in {\em International Symposium on Formal Methods}, pp.~68--84,
+  Springer, 2012.
+
+\bibitem{Chomicki95:TODS}
+J.~Chomicki, {\it Efficient checking of temporal integrity constraints using
+  bounded history encoding},  {\em ACM Transactions on Database Systems} {\bf
+  20} (1995), no.~2 149--186.
+
+\bibitem{halle2012runtime}
+S.~Hall{\'e} and R.~Villemaire, {\it Runtime enforcement of web service message
+  contracts with data},  {\em IEEE Transactions on Services Computing} {\bf 5}
+  (2012), no.~2 192--206.
+
+\bibitem{basin2015monitoring}
+D.~Basin, F.~Klaedtke, S.~M{\"u}ller, and E.~Z{\u{a}}linescu, {\it Monitoring
+  metric first-order temporal properties},  {\em Journal of the ACM (JACM)}
+  {\bf 62} (2015), no.~2 1--45.
+
+\bibitem{gupta1993maintaining}
+A.~Gupta, I.~S. Mumick, and V.~S. Subrahmanian, {\it Maintaining views
+  incrementally},  {\em ACM SIGMOD Record} {\bf 22} (1993), no.~2 157--166.
+
+\bibitem{afrati2008data}
+F.~Afrati, C.~Li, and V.~Pavlaki, {\it Data exchange in the presence of
+  arithmetic comparisons},  in {\em Proceedings of the 11th international
+  conference on extending database technology: Advances in database
+  technology}, pp.~487--498, 2008.
+
+\bibitem{ten2013data}
+B.~ten Cate, P.~G. Kolaitis, and W.~Othman, {\it Data exchange with arithmetic
+  operations},  in {\em Proceedings of the 16th International Conference on
+  Extending Database Technology}, pp.~537--548, 2013.
+
+\bibitem{de2014reasoning}
+G.~De~Giacomo, R.~De~Masellis, and M.~Montali, {\it Reasoning on ltl on finite
+  traces: Insensitivity to infiniteness},  in {\em Proceedings of the AAAI
+  Conference on Artificial Intelligence}, vol.~28, 2014.
+
+\bibitem{chiariello2023ltl}
+F.~Chiariello, F.~M. Maggi, and F.~Patrizi, {\it From ltl on process traces to
+  finite-state automata}, .
+
+\bibitem{dantsin2001complexity}
+E.~Dantsin, T.~Eiter, G.~Gottlob, and A.~Voronkov, {\it Complexity and
+  expressive power of logic programming},  {\em ACM Computing Surveys (CSUR)}
+  {\bf 33} (2001), no.~3 374--425.
+
+\bibitem{stansifer1984presburger}
+R.~Stansifer, {\it Presburger's article on integer arithmetic: Remarks and
+  translation},  tech. rep., Cornell University, 1984.
+
+\bibitem{shkapsky2015optimizing}
+A.~Shkapsky, M.~Yang, and C.~Zaniolo, {\it Optimizing recursive queries with
+  monotonic aggregates in deals},  in {\em 2015 IEEE 31st International
+  Conference on Data Engineering}, pp.~867--878, IEEE, 2015.
+
+\bibitem{mohapatra2014incremental}
+A.~Mohapatra and M.~Genesereth, {\it Incremental maintenance of aggregate
+  views},  in {\em International Symposium on Foundations of Information and
+  Knowledge Systems}, pp.~399--414, Springer, 2014.
+
+\bibitem{alvaro2010dedalus}
+P.~Alvaro, W.~R. Marczak, N.~Conway, J.~M. Hellerstein, D.~Maier, and R.~Sears,
+  {\it Dedalus: Datalog in time and space},  in {\em International Datalog 2.0
+  Workshop}, pp.~262--281, Springer, 2010.
+
+\bibitem{bellomarini2021monotonic}
+L.~Bellomarini, M.~Nissl, and E.~Sallinger, {\it Monotonic aggregation for
+  temporal datalog.},  in {\em RuleML+ RR (Supplement)}, 2021.
+
+\bibitem{arasu2006cql}
+A.~Arasu, S.~Babu, and J.~Widom, {\it The cql continuous query language:
+  semantic foundations and query execution},  {\em The VLDB Journal} {\bf 15}
+  (2006) 121--142.
+
+\bibitem{arasu2016stream}
+A.~Arasu, B.~Babcock, S.~Babu, J.~Cieslewicz, M.~Datar, K.~Ito, R.~Motwani,
+  U.~Srivastava, and J.~Widom, {\it Stream: The stanford data stream management
+  system},  in {\em Data Stream Management}, pp.~317--336.
+\newblock Springer, 2016.
+
+\bibitem{GJ79}
+M.~Garey and D.~Johnson, {\em Computers and Intractability: A Guide to the
+  theory of NP-Completeness}.
+\newblock Freeman, 1979.
+
+\bibitem{banitt2010halting}
+T.~D. Banitt, {\it The halting problem},  {\em Macalester Journal of
+  Philosophy} {\bf 5} (2010), no.~1 4.
+
+\bibitem{libkin2004elements}
+L.~Libkin, {\em Elements of finite model theory}, vol.~41.
+\newblock Springer, 2004.
+
+\bibitem{hillebrand1995undecidable}
+G.~G. Hillebrand, P.~C. Kanellakis, H.~G. Mairson, and M.~Y. Vardi, {\it
+  Undecidable boundedness problems for datalog programs},  {\em The Journal of
+  logic programming} {\bf 25} (1995), no.~2 163--190.
+
+\bibitem{kolaitis2006complexity}
+P.~G. Kolaitis, J.~Panttaja, and W.-C. Tan, {\it The complexity of data
+  exchange},  in {\em Proceedings of the twenty-fifth ACM SIGMOD-SIGACT-SIGART
+  symposium on Principles of database systems}, pp.~30--39, 2006.
+
+\bibitem{maher1996chasing}
+M.~J. Maher and D.~Srivastava, {\it Chasing constrained tuple-generating
+  dependencies},  in {\em Proceedings of the fifteenth ACM SIGACT-SIGMOD-SIGART
+  symposium on Principles of database systems}, pp.~128--138, 1996.
+
+\bibitem{dou2013sound}
+D.~Dou and S.~Coulondre, {\it A sound and complete chase procedure for
+  constrained tuple-generating dependencies},  {\em Journal of Intelligent
+  Information Systems} {\bf 40} (2013), no.~1 63--84.
+
+\end{thebibliography}\endgroup

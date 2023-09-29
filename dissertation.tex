@@ -1,0 +1,269 @@
+%%%---PREAMBLE---%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass[oneside,10pt,final]{sty/ucthesis-CA2012}
+\pdfoutput=1
+
+%--- Packages ---------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[lofdepth,lotdepth,caption=false]{subfig}
+\makeatletter
+\let\normalsize\relax
+\let\@currsize\normalsize
+\makeatother
+\usepackage{adjustbox}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+%\usepackage[noend]{algpseudocode}
+%\usepackage{algorithmic}
+\usepackage{amsfonts} 
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amstext} % for \text macro
+% \usepackage{amsthm}
+\usepackage{array}   % for \newcolumntype macro
+% \usepackage{bibentry}
+\usepackage{bold-extra}
+\usepackage{braket}
+\usepackage{caption}
+\usepackage{cite}
+\usepackage{color}
+\usepackage{comment}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{hyperref}
+% \usepackage{lineno}
+% \linenumbers
+\usepackage{mathtools}
+\usepackage[linewidth=1pt]{mdframed}
+% \usepackage{minipage}
+\usepackage{multirow}
+% \usepackage{natbib}
+\usepackage{pgf}
+\usepackage{pgfplots}
+\usepackage{setspace}
+\usepackage{stackengine}
+%\usepackage[caption=false]{subcaption}
+%\usepackage{subfigure} (Subfigure package clashes with another package)
+\usepackage{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{arrows, positioning, fit, calc, automata, tikzmark, decorations.pathreplacing}
+%\usepackage{wrapfig}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{xspace}
+
+
+%---New Definitions and Commands------------------------------------------------------
+
+\def\Act{\textrm{\bf A}}
+\def\aid{{\tiny Aid}}
+\def\An#1{\mbox{\footnotesize #1}}
+\def\att{\textsc{c}}
+\def\Attr{\textbf{C}}
+\def\BAD{\textsc{bad}}
+\def\BAE{\textsc{bae}}
+\def\BODY/{\textsc{ba}}
+\def\C{\mbb{C}}
+% \def\caA{\mathcal{A}}
+% \def\caD{\mathcal{D}}
+% \def\caP{\mathcal{P}}
+% \def\caT{\mathcal{T}}
+% \def\caV{\mathcal{V}}
+\def\Dom{\mathcal{D}}
+\def\eid{\textsc{id}}
+\def\emptyset{\varnothing}
+\def\End{\textsl{\small END}}
+\def\EXT{\textsc{ext}}
+\def\F{\sc F}
+% \def\filler{\phantom{fillerfillerfiller}}
+\def\G{\sf G}
+\def\ge{\geqslant}
+\def\geq{\geqslant}
+\def\HAE{\textsc{hae}}
+% \def\half{\frac{1}{2}}
+\def\HEAD/{\textsc{ha}}
+\def\ID{\textbf{I}}
+\def\im{\mrm{im}}
+\def\le{\leqslant}
+\def\leq{\leqslant}
+\def\leq{\leqslant}
+\def\maxgap{\textit{maxgap}}
+\def\N{\mathbb{N}}
+\def\NK#1{\hspace*{-#1pt}}
+\def\p{\partial}
+\def\Prim{\textit{Prim}}
+% \def\Proc{\sc Proc}
+\def\PTI/{\mbox{\small{\sf P{\scriptsize ART}}\,I}}
+\def\PTII/{\mbox{\small{\sf P{\scriptsize ART}}\,II}}
+% \def\qed{\hfill\rule{.8mm}{1.5ex}}
+\def\qed{\hfill\mbox{\rule[0pt]{0.5ex}{1.5ex}}}
+\def\R{\mbb{R}}
+\def\Rn#1{\mbox{\small\sf #1}}
+\def\sAlice{\scriptsize Alice}
+\def\sBob{\scriptsize Bob}
+\def\seq#1#2{#1_1,...,#1_{#2}}
+\def\sps{\scriptsize}
+\def\Start{\textsl{\small START}}
+\def\tight#1{\,{#1}\,}
+\def\tmsp{\textsf{ts}}
+% \def\Tr{\mrm{Tr}}
+\def\TS{\textbf{T}}
+\def\var{\textit{var}}
+\def\X{\sf X}
+\def\Z{\mathbb{Z}}
+
+\hyphenation{op-tical net-works semi-conduc-tor}
+\let\Bbbk\relax
+
+\newcommand{\Acyc}{\text{Acyc}}
+\newcommand{\AcycConn}{\text{AcycConn}}
+\newcommand{\Approve}{\texttt{Approve}}
+\newcommand{\Approval}{\texttt{Approval}}
+\newcommand{\Account}{\texttt{Account}}
+\newcommand{\blank}{\textvisiblespace}
+\newcommand{\Compute}{\mbox{{\tt Compute}}}
+\newcommand{\Config}{\texttt{Config}}
+\newcommand{\ConstraintToLTL}{\text{ConsToLTL}}
+\newcommand{\Deposit}{\texttt{Deposit}}
+\newcommand{\Error}{\texttt{\tt Error}}
+\newcommand{\Gap}{\text{Gap}}
+\newcommand{\Launch}{\texttt{Launch}}
+\newcommand{\Next}{\texttt{Next}}
+\newcommand{\Payment}{\texttt{Payment}}
+\newcommand{\PromptSchedule}{\text{PromptSchedule}}
+\newcommand{\Receipt}{\texttt{Receipt}}
+\newcommand{\Request}{\texttt{Request}}
+\newcommand{\Reserve}{\texttt{Reserve}}
+\newcommand{\Rules}{\textsc{Rules}}
+\newcommand{\Schedule}{\texttt{Schedule}}
+\newcommand{\SingleLinkedAcyclicRuleToLTL}{\text{SingAcycToLTL}}
+\newcommand{\Terminate}{\texttt{Terminate}}
+\newcommand{\TimelyPayment}{\texttt{TimelyPayment}}
+\newcommand{\tm}{\texttt{tm}}
+\newcommand{\Transition}{\texttt{Transition}}
+\newcommand{\true}{\textit{true}}
+\newcommand{\Unroll}{\text{SingToLTL}}
+
+\newcommand{\be}{\begin{equation}}
+\newcommand{\D}[2]{\frac{d#1}{d#2}}
+\newcommand{\duten}[3]{#1^{\ph{#2}#3}_{#2}}
+\newcommand{\ee}{\end{equation}}
+% \newcommand{\mbb}[1]{\mathbb{#1}}
+% \newcommand{\mbf}[1]{\mathbf{#1}}
+% \newcommand{\mcal}[1]{\mathcal{#1}}
+\newcommand{\mrm}[1]{\mathrm{#1}}
+\newcommand{\pd}[2]{\frac{\p#1}{\p#2}}
+\newcommand{\ph}[1]{\phantom{#1}}
+\newcommand{\udten}[3]{#1^{#2}_{\ph{#2}#3}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+\renewcommand{\algorithmicforall}{\textbf{for each}}
+\renewcommand{\algorithmicrepeat}{\textbf{do}}
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\algrenewcommand\algorithmicindent{1.0em}
+
+\setlength{\textfloatsep}{2mm}
+
+% \newcounter{metalemma}
+% \newtheorem{claim}[metalemma]{Claim}
+% \newtheorem{Conjecture}[metalemma]{Conjecture}
+% \newtheorem{corollary}[metalemma]{Corollary}
+% \newtheorem{definition}[metalemma]{Definition}
+% \newtheorem{deff}[metalemma]{Definition}
+% \newtheorem{examp}[metalemma]{Example}
+% \newtheorem{lemma}[metalemma]{Lemma}
+% \newtheorem{Proposition}[metalemma]{Proposition}
+% \newtheorem{Theorem}[metalemma]{Theorem}
+% \newtheorem{thm}[metalemma]{Theorem}
+
+\newcounter{examp}[chapter]
+\renewcommand{\theexamp}{\thechapter.\arabic{examp}}
+\newenvironment{examp}[1][]{\refstepcounter{examp}\medskip\noindent{\bf Example \theexamp{} #1:}~}{\hspace*{\fill}~\QED\medskip}
+\newcounter{thm}[chapter]
+\renewcommand{\thethm}{\thechapter.\arabic{thm}}
+\newenvironment{thm}[1][]{\refstepcounter{thm}\medskip\noindent{\bf Theorem \thethm{} #1:}~}{\medskip}
+\newenvironment{corollary}[1][]{\refstepcounter{thm}\medskip\noindent{\bf Corollary \thethm{} #1:}~}{\medskip}
+\newenvironment{lemma}[1][]{\refstepcounter{thm}\medskip\noindent{\bf Lemma \thethm{} #1:}~}{\medskip}
+% \newenvironment{lmm}{\par\medskip\noindent\textbf{Lemma:}\quad\rmfamily}{\par\medskip}
+
+\newcounter{deff}
+\newenvironment{deff}[1][]{\refstepcounter{deff}\medskip\noindent{\bf Definition #1:}~}{\medskip}
+% \newenvironment{deff}[1][]{\refstepcounter{deff}\medskip\noindent{\bf Definition \thedeff #1:}~}{\medskip}
+
+\newcolumntype{L}{>{$}l<{$}} % math-mode version of "l" column type
+\newcolumntype{R}{>{$}r<{$}} % math-mode version of "l" column type
+
+%---Set Margins ------------------------------------------------------
+\setlength\oddsidemargin{0.25 in} \setlength\evensidemargin{0.25 in} \setlength\textwidth{6.25 in} \setlength\textheight{8.50 in}
+\setlength\footskip{0.25 in} \setlength\topmargin{0 in} \setlength\headheight{0.25 in} \setlength\headsep{0.25 in}
+
+%%%---DOCUMENT---%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+%=== Preliminary Pages ============================================
+\begin{frontmatter}
+	\input{tex/title}
+	\maketitle
+	\approvalpage
+	\copyrightpage
+% 	\input{tex/dedicate}%comment out if you don't want a dedication
+	\input{tex/acknowledgements}
+	\input{tex/vitae}
+	\input{tex/abstract}
+	\tableofcontents
+\end{frontmatter}
+
+\begin{mainmatter}
+
+%---Set Headers and Footers ------------------------------------------------------
+\pagestyle{fancy}
+\renewcommand{\chaptermark}[1]{\markboth{{\sf #1 \hspace*{\fill} Chapter~\thechapter}}{} }
+\renewcommand{\sectionmark}[1]{\markright{ {\sf Section~\thesection \hspace*{\fill} #1 }}}
+\fancyhf{}
+
+\makeatletter \if@twoside \fancyhead[LO]{\small \rightmark} \fancyhead[RE]{\small\leftmark} \else \fancyhead[LO]{\small\leftmark}
+\fancyhead[RE]{\small\rightmark} \fi
+
+\def\cleardoublepage{\clearpage\if@openright \ifodd\c@page\else
+  \hbox{}
+  \vspace*{\fill}
+  \begin{center}
+    This page intentionally left blank
+  \end{center}
+  \vspace{\fill}
+  \thispagestyle{plain}
+  \newpage
+  \fi \fi}
+\makeatother
+\fancyfoot[c]{\textrm{\textup{\thepage}}} % page number
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\fancypagestyle{plain} { \fancyhf{} \fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}}
+
+%=== Introduction ============================================
+
+\input{tex/chapter1-introduction}
+\input{tex/chapter2-preliminaries}
+\input{tex/chapter3-LTL-translation}
+\input{tex/chapter4-early-violation-detection}
+\input{tex/chapter5-aggregation}
+\input{tex/chapter6-finite-satisfiability}
+\input{tex/chapter7-conclusion}
+
+%\centerline{\includegraphics[width=.35\textwidth]{fig/testfig1.pdf}}
+
+%=== Appendix ============================================
+% \appendix
+% \dsp
+% \input{tex/appendix}
+\end{mainmatter}
+
+%----- Bibliography ----------------
+\ssp
+\bibliographystyle{JHEP3}
+\bibliography{bibliography}
+
+\end{document}

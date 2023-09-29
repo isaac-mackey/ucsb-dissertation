@@ -1,0 +1,94 @@
+\begin{abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+%todo: max 350 words
+%current: 378 words
+
+The rise of automated systems and sensor networks
+in virtually all areas of industry and social life
+means many technologies produce streams of events rich with information.
+These technologies demand algorithms
+for evaluating queries on streams,
+coordinating systems that communicate with events,
+and monitoring streams with respect to specified constraints.
+In monitoring,
+constraints that define correct behavior,
+e.g., business goals, legal requirements, resource limitations, or safety and security concerns
+are specified in a formal language;
+then,
+an event stream is analyzed at runtime
+to determine if the constraints are satisfied or violated.
+To make monitoring effective,
+it is important to detect constraint violations at the earliest possible time,
+which we call the early violation detection problem. 
+
+We study early violation detection for a class of constraints called rules
+that restrict time gaps between events and compare events' data contents.
+We show that (1) the general problem of early violation detection
+for an arbitrary set of rules is unsolvable
+and 
+(2) early violation detection is possible
+for various subclasses of rules.
+For (1),
+we show early violation detection
+is closely related to the problem of finite satisfiability
+(whether or not a given set of rules can be satisfied by a finite event stream)
+and prove that finite satisfiability for a set of rules is undecidable
+with a reduction from the empty-tape Turing machine halting problem,
+which implies that early violation detection is unsolvable in general.
+For (2), we study restricted classes of rules.
+A recent proof of Kamp's Theorem provides a translation algorithm
+for ``dataless'' rules through translation to linear temporal logic,
+yielding formulas hyper-exponential in the size of the input rule.
+We present translation algorithms for two subclasses of dataless rules,
+improving the output size
+from hyper-exponential to single- and double-exponential, respectively.
+For rules with data, we first present a technique
+that calculates deadlines from time gaps between events,
+then use deadlines for early violation detection for individual rules.
+We extend these algorithms to monitor an acyclic set of rules
+by applying a chase process and satisfiability testing.
+We also report the performance of an implementation of these algorithms.
+Finally, we consider acyclic sets of rules with aggregation functions over time windows,
+combining the chase and satisfiability techniques
+with an encoding of aggregation functions in Presburger arithmetic.
+
+
+%\abstractsignature
+\end{abstract}
+
+
+% This approach is more efficient,
+% but requires the ability to
+% incrementally update the partial results of previous evaluations,
+% which is a non-trivial problem
+% given the complexity of business rules.
+% One approach to address this problem
+% is to use languages with restricted expressiveness,
+% such as linear temporal logic (LTL),
+% which can be evaluated incrementally,
+% but are not expressive enough to capture
+% constraints on data in events.
+% Thus, effective and efficient techniques
+% for expressive business rules
+% are an open problem for research.
+
+% A variety of techniques for
+% incremental violation detection
+% already exist.
+% For temporal constraints on propositional events,
+% violation detection has often been achieved
+% by translating constraints
+% into finite state machines.
+% We use this approach for rules
+% that do not refer to data in events
+% and compare our results to an existing translation algorithm.
+% For constraints with data
+% and for constraints on aggregation functions,
+% violation detection can be achieved by creating
+% data structures that can be incrementally updated
+% and queried to report violations;
+% we use this approach for rules with data,
+% using a relational database as the data structure
+% and reducing the violation detection problem to
+% a satisfiability problem for Presburger formulas.
+

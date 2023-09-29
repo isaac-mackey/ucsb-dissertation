@@ -1,0 +1,1540 @@
+\chapter{Rules with Aggregation}
+\label{chapter:aggregation}
+
+This chapter studies
+for rules with aggregation functions.
+The high volume of data and relatedness of events in enactments
+encourages specification that aggregate properties of groups of data.
+For example,
+a banking application may report an account is suspicious for money laundering
+if the sum of the account's payments in a 24-hour period exceeds \$50,000,
+even if no individual transaction exceeds that amount.
+Such rules
+call for monitoring techniques
+that use aggregation functions.
+These functions
+introduces new challenges
+of reasoning about functions on multiple events,
+as well as numeric data.
+In this chapter, we develop a syntax and semantics
+for extending our rules with aggregation functions.
+Then,
+we provide two ways of addressing the challenges
+of early violation detection.
+The first is to rewrite aggregation
+with Datalog$_{\mathbb{Z}}$ programs,
+which allows us to use the results of the previous chapter
+with minimal changes.
+The second is to adapt the chase process
+to reason with aggregation functions.
+
+This chapter is organized as follows:
+in Section \ref{section:aggregation-definitions},
+we add time windows and aggregation functions over these windows
+to rule syntax and semantics.
+In Section \ref{section:aggregation-datalog-program},
+we provide Datalog$_{\mathbb{Z}}$ programs that generate events
+with the results of aggregation
+without calling the underlying aggregation functions directly.
+In Section \ref{section:chasing-rules-with-aggregation},
+we combine the algorithms from the previous chapter 
+to perform early violation detection,
+by adapting the chase process
+and rewriting aggregation functions in Presburger arithmetic (PA).
+Finally,
+in Sections\:\ref{section:aggregation-related-work} and \ref{section:aggregation-summary}
+discuss related work and conclude the chapter.
+
+\section{Time Windows for Aggregation Functions}
+\label{section:aggregation-definitions}
+
+Now, we present the syntax for rules with aggregation,
+which uses different types of windows
+to collect events
+and five aggregation functions
+to aggregate the values of events in a window.
+Then,
+we describe the semantics of rules with aggregation,
+which do not just constrain event, but also generate events
+that hold the results of applying aggregation functions.
+Finally,
+we describe an assumption about target enactments
+we make to simplify the problem
+and a preprocessing step
+that enables this assumption.
+The results in the remainder of this chapter
+assume that the workflow assumption holds.
+
+\begin{examp}\label{examp:banking-aggregation-rules}
+We illustrate the aggregation model with
+a banking application
+where users deposit money into their accounts.
+Enactments for this application include
+events for users' deposits
+and bankers' approval of users' activity,
+with two event types:
+{\tt Deposit},
+with {\em user} and {\em amount} attributes,
+and {\tt Approve}, with the {\em user} attribute.
+The {\em user} values come from the data domain $\Dom$
+and {\em amount} values are positive integers in $\mathbb{N}$.
+
+Consider if the bank
+requires that over every three-day period:
+($1$) the sum of deposits must be at most $\$20$ and
+($2$) some deposit is more than $\$10$.
+These requirements are
+specified by the rules $r_1$ and $r_2$, respectively,
+in Figure~\ref{fig:aggregation-rules-2}.
+Rule $r_1$ 
+computes the sum of all deposits for a user
+over each three-day window
+in a new ``aggregation event'' type
+$\mbox{\tt SumDep}(\mbox{\em{sum}},\mbox{\em start})$.
+This event type has two attributes:
+{\em sum} is the sum of the deposits in the window
+and {\em start} is the first timestamp of the window.
+The gap atom $a'\leq 20$ in the rule head
+requires that the sum $a'$ is at least $\$20$.
+Rule $r_2$ aggregates
+the maximum deposit for a user
+over each three-batch window
+in a new aggregation event type
+$\mbox{\tt MaxDep}(\mbox{\em max},\mbox{\em start})$,
+where {\sc max} is the maximum of the deposits in the window
+and {\em start} is the first timestamp of the window.
+The gap atom $b'\geq 10$ in the rule head
+enforces the requirement that the maximum $b'$ is at least $\$10$.
+\end{examp}
+
+\begin{figure}[ht]
+    \centering
+\begin{tabular}{lcl}
+$r_1: \mbox{\tt SumDep}(u,a'=\mbox{\sc sum}(a),s)@(s+3)$, $a'\leq 20$ & $\leftarrow$ & {\sc tumbling}$(s,s+3)$                \\
+                                                                    &                & {\sc from} \mbox{\tt Deposit}$(u,a)@z$   \\
+                                                                    &                &                                          \\
+$r_2: \mbox{\tt MaxDep}(u,b'=\mbox{\sc max}(b),s)@(s+3)$, $b'\geq 10$ & $\leftarrow$ & {\sc tumbling}(s,s+3)                  \\
+                                                                    &                & {\sc from} \mbox{\tt Deposit}$(u,b)@z$   \\
+                                                                    &                &                                          \\
+\end{tabular}
+\caption{Two rules $r_1$ and $r_2$ with aggregation functions over two types of sliding windows}
+\label{fig:aggregation-rules-2}
+\end{figure}
+
+The rule heads contain atoms
+that name events that hold the results of aggregation functions
+and additionally may gap atoms on those events.
+We allow the aggregation functions
+sum ({\sc sum}),
+maximum ({\sc max}),
+minimum ({\sc min}),
+count ({\sc count}),
+and
+count-unique ({\sc countu}).
+The values $-\infty$ and $\infty$
+are the default values for {\sc max} and {\sc min}, respectively;
+we assume these values not present in the enactment
+and
+are used when the window contains no events.
+The value $0\in\N$ is the default value for {\sc sum},
+{\sc count}, and {\sc countu}.
+
+The {\em window expression},
+e.g.,
+{\sc tumbling}$(s,s+3)$ in $r_1$,
+indicates which events are collected in windows for $r_1$.
+We use two classes of windows,
+either {\em moving} or {\em triggered},
+which are defined by the window expression.
+Moving windows are either
+{\em sliding} and {\em tumbling} windows;
+they have a constant length and
+are evaluated at every timestamp
+or at every timestamp that is a multiple of the window length, respectively,
+regardless of the enactment's events.
+The {\em sliding} window
+is parametrized by its window length $L$ for some $L\geq 1$;
+it generates a window for the interval of timestamps $[1,L]$,
+and then, for each integer $i$, the interval $i$ through $i+L$,
+assuming the enactment extends to $i+L$.
+The {\em tumbling} window
+is defined by a window length $L$, and
+includes the window $[1,L]$,
+then the window $[kL+1,kL+L]$ for every integer $k\geq 1$.
+Fig.\:\ref{fig:moving-windows} shows an example of moving windows.
+On the top of the figure,
+{\tt Deposit} source events appear at each timestamp.
+Sliding and tumbling windows are shown as boxes of length $3$,
+with the window's aggregation event inside the box.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[node distance=0.3cm,>=stealth',bend angle=45,auto]
+    \begin{small}
+        
+% Deposit events
+\node[rectangle, rounded corners, draw, text width=1.2cm, align=center, minimum height=0.5cm] (event1) {D(40)@1};
+\node[rectangle, rounded corners, draw, text width=1.2cm, align=center, minimum height=0.5cm, right=of event1] (event2) {D(10)@2};
+\node[rectangle, rounded corners, draw, text width=1.2cm, align=center, minimum height=0.5cm, right=of event2] (event3) {D(10)@3};
+\node[rectangle, rounded corners, draw, text width=1.2cm, align=center, minimum height=0.5cm, right=of event3] (event4) {D(0)@4};
+\node[rectangle, rounded corners, draw, text width=1.2cm, align=center, minimum height=0.5cm, right=of event4] (event5) {D(0)@5};
+\node[rectangle, rounded corners, draw, text width=1.2cm, align=center, minimum height=0.5cm, right=of event5] (event6) {D(15)@6};
+\node[rectangle, rounded corners, draw, text width=1.2cm, align=center, minimum height=0.5cm, right=of event6] (event7) {D(20)@7};
+\node[rectangle, rounded corners, draw, text width=1.2cm, align=center, minimum height=0.5cm, right=of event7] (event8) {D(5)@8};
+\node[rectangle, rounded corners, draw, text width=1.2cm, align=center, minimum height=0.5cm, right=of event8] (event9) {D(0)@9};
+
+% Arrows for chain of events
+\draw[-] (event1.east) to [out=0,in=180] (event2.west);
+\draw[-] (event2.east) to [out=0,in=180] (event3.west);
+\draw[-] (event3.east) to [out=0,in=180] (event4.west);
+\draw[-] (event4.east) to [out=0,in=180] (event5.west);
+\draw[-] (event5.east) to [out=0,in=180] (event6.west);
+\draw[-] (event6.east) to [out=0,in=180] (event7.west);
+\draw[-] (event7.east) to [out=0,in=180] (event8.west);
+\draw[-] (event8.east) to [out=0,in=180] (event9.west);
+
+% Tumbling Windows
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, below=of event2] (twindow1) {{\tt TumblingSum}(60, 1)@3};
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, below=of event5] (twindow2) {{\tt TumblingSum}(15, 3)@5};
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, below=of event8] (twindow3) {{\tt TumblingSum}(25, 5)@7};
+
+% Sliding Windows
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, below=of twindow1, node distance=1cm] (slidewindow1) {{\tt SlidingSum}(60, 1)@3};
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, right of=slidewindow1, below=of slidewindow1, xshift=1.5cm, yshift=0.0cm] (slidewindow2) {{\tt SlidingSum}(20, 2)@4};
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, right of=slidewindow2, below=of slidewindow2, xshift=1.4cm, yshift=0.0cm] (slidewindow3) {{\tt SlidingSum}(10, 3)@5};
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, right of=slidewindow3, below=of slidewindow3, xshift=1.4cm, yshift=0.0cm] (slidewindow4) {{\tt SlidingSum}(15, 4)@6};
+
+% Vertical lines
+% \draw[dashed] (event1.west) to (slidewindow1.west);
+% \draw[dashed] (event2.west) to (slidewindow2.west);
+% \draw[dashed] (event3.west) to (slidewindow3.west);
+% \draw[dashed] (event4.west) to (slidewindow4.west);
+% \draw[dashed] (event7.west) to (twindow3.west);
+
+\end{small}
+\end{tikzpicture}
+\caption{An enacment with {\tt Deposit} ({\tt D}) events, tumbling and sliding windows for window length $3$, and aggregation events {\tt TumblingSum} and {\tt SlidingSum}}
+\label{fig:moving-windows}
+\end{figure}
+
+The second class of windows
+are those with event triggers.
+For a {\em start-triggered} window of length $L$,
+a window $[s,s+L]$ is generated
+whenever a specified event occurs at time $s$.
+Similarly, for an {\em end-triggered} window,
+a window $[e-L,e]$ is generated
+whenever a specified event occurs at time $e$.
+Finally,
+a {\em start-end-triggered} window
+indicates a window between every pair of
+start and end events.
+Consider the enactment and corresponding windows
+in Figure~\ref{fig:triggered-windows}.
+The start trigger {\tt B}
+and
+the end trigger {\tt C} events
+are shown above the {\tt Deposit} source events.
+Windows are shown as boxes, 
+with vertical, dashed Lines
+matching each window to its start and end events.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[node distance=0.5cm,>=stealth',bend angle=45,auto]
+\begin{small}
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm] (event1) {D(5)@1};
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, right=of event1] (event2) {D(5)@2};
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, right=of event2] (event3) {D(1)@3};
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, right=of event3] (event4) {D(0)@4};
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, right=of event4] (event5) {D(0)@5};
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, right=of event5] (event6) {D(5)@6};
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, right=of event6] (event7) {D(2)@7};
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, right=of event7] (event8) {D(5)@8};
+
+% Events
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, above=of event1] (bevent1) {B@1};
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, right=of bevent1] (bevent2) {B@2};
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, above=of event5] (bevent5) {C@5};
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, above=of event6] (bevent6) {B@6};
+\node[rectangle, rounded corners, draw, text width=1.1cm, align=center, minimum height=0.5cm, above=of event8] (bevent8) {C@8};
+
+% Lines for events
+\draw[-] (bevent1.east) to [out=0,in=180] (bevent2.west);
+\draw[-] (bevent2.east) to [out=0,in=180] (bevent5.west);
+\draw[-] (bevent5.east) to [out=0,in=180] (bevent6.west);
+\draw[-] (bevent6.east) to [out=0,in=180] (bevent8.west);
+
+% Arrows for chain of events
+\draw[-] (event1.east) to [out=0,in=180] (event2.west);
+\draw[-] (event2.east) to [out=0,in=180] (event3.west);
+\draw[-] (event3.east) to [out=0,in=180] (event4.west);
+\draw[-] (event4.east) to [out=0,in=180] (event5.west);
+\draw[-] (event5.east) to [out=0,in=180] (event6.west);
+\draw[-] (event6.east) to [out=0,in=180] (event7.west);
+\draw[-] (event7.east) to [out=0,in=180] (event8.west);
+
+% Start-triggered windows
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, below=of event2, xshift=0cm] (startwindow1) {{\tt BStart-Sum}(11,1)@3};
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, below=of event2, xshift=1.8cm, yshift=-0.6cm] (startwindow2) {{\tt BStart-Sum}(6,2)@4};
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, below=of event6, xshift=1.8cm] (startwindow3) {{\tt BStart-Sum}(12,6)@8};
+
+% End-triggered windows
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, below=of event3, xshift=1.8cm, yshift=-1.4cm] (endwindow1) {{\tt CEnd-Sum}(1,3)@5};
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, below=of event6, xshift=1.8cm, yshift=-1.4cm] (endwindow2) {{\tt CEnd-Sum}(12,6)@8};
+
+%Start-End-triggered window
+\node[rectangle, draw, text width=8.3cm, minimum height=0.5cm, below=of event2, xshift=1.9cm, yshift=-2.4cm] (startendwindow3) {{\tt BStart-CEnd-Sum}(11,1)@5};
+\node[rectangle, draw, text width=6.5cm, minimum height=0.5cm, below=of event2, xshift=2.8cm, yshift=-3.0cm] (startendwindow4) {{\tt BStart-CEnd-Sum}(6,2)@5};
+\node[rectangle, draw, text width=13.8cm, minimum height=0.5cm, below=of event2, xshift=4.6cm, yshift=-3.6cm] (startendwindow3) {{\tt BStart-CEnd-Sum}(24,1)@8};
+\node[rectangle, draw, text width=12.0cm, minimum height=0.5cm, below=of event2, xshift=5.5cm, yshift=-4.2cm] (startendwindow4) {{\tt BStart-CEnd-Sum}(12,2)@8};
+\node[rectangle, draw, text width=4.8cm, minimum height=0.5cm, below=of event6, xshift=1.8cm, yshift=-4.8cm] (startwindow3) {{\tt BStart-CEnd-Sum}(12,6)@8};
+
+% Vertical lines for End-triggered windows
+% \draw[dashed] (bevent5.east) to (endwindow1.east);
+
+% Vertical lines for start-end-triggered windows
+% \draw[dashed] (bevent6.west) to (startendwindow2.west);
+% \draw[dashed] (bevent8.east) to (startendwindow2.east);
+
+% Vertical lines for start-end-triggered windows
+% \draw[dashed] (bevent2.south west) -- ($(bevent2.south west)+(270:1.5cm)$);
+% \draw[dashed] (startwindow2.south west) to (startendwindow1.north west);
+% \draw[dashed] (bevent5.east) to (startendwindow1.east);
+
+% Vertical lines for start-triggered windows
+% \draw[dashed] (bevent1.west) to (startwindow1.west);
+\end{small}
+\end{tikzpicture}
+
+\caption{Triggered windows, triggered by start event {\tt B} and end event {\tt C}}
+\label{fig:triggered-windows}
+\end{figure}
+
+The rule semantics for aggregation expressions
+are different from the semantics for non-aggregation expressions:
+rules with aggregation generate ``aggregation events''.
+To define these semantics,
+we refine the event model
+to distinguish between {\em external} or {\em internal} events.
+External events are generated by an outside source;
+this is the event model in the previous chapters.
+Internal events are generated by the monitoring system,
+here for each window of an aggregation rule.
+For an enactment $\eta$ and an aggregation rule $r$,
+for each window $W$ defined by the window expression in $\mbox{\em body}(r)$,
+an internal {\em aggregation event} is generated
+with the timestamp of the last event in $W$
+and the value of the aggregation function in $\mbox{\em head}(r)$
+applied to data values for the attribute
+and source events in $W$ designated by the rule body.
+
+This new presence of aggreagtion functions
+require reasoning about collections of events,
+including overlapping windows.
+Furthermore,
+the results of aggregation functions
+are numeric values;
+previously we only needed to reason about data values in $\Dom$
+and timestamps.
+This motivates the development of extension of the chase process
+and satisfiability checking
+to rules with aggregation functions.
+Thus, the technical problem addressed by this chapter is:
+given a set of rules
+with aggregation functions,
+report an enactment's violations
+at the earliest possible time.
+
+As a simplifying assumption,
+we assume that for each event type
+that acts as a source for an aggregation rule,
+there is exactly one event of that type per timestamp.
+We call this the {\em workflow assumption},
+also referred to as the {\sc declare} assumption in \cite{de2014reasoning}
+and the {\em simplicity} assumption in \cite{chiariello2023ltl}.
+This assumption limits the types of enactments
+to which our results apply,
+but it is needed for the correctness of the Datalog$_{\mathbb{Z}}$ programs
+in the algorithms in the following section.
+Additionally,
+we use a preprocessing step that modifies an input enactment
+with {\em at most one} event per type per timestamp
+to produce an enactment where each event type has {\em exactly one} event per timestamp.
+This preprocessing step
+adds an attribute {\em real} to each event type.
+If an event of that type at a timestamp is present in the input enactment,
+{\em real} is set to $1$.
+Otherwise,
+a placeholder event is added with the value $0$ for {\em real}
+and $0$ for all other attributes.
+We give an example of this preprocessing in Fig.\:\ref{fig:preprocessing-example}.
+Our results in the remainder of this chapter
+assume that the workflow assumption holds.
+
+\begin{figure}[h!]
+  \centering
+\begin{tabular}{|c|c|c|}\hline
+    timestamp & Source events              & Preprocessed events        \\\hline
+    $1$       & \texttt{Deposit}$(10)@1$      & \texttt{Deposit}$(10,1)@1$      \\\hline
+    $2$       & \texttt{Deposit}$(40)@2$      & \texttt{Deposit}$(40,1)@2$      \\\hline
+    $3$       &                           & \texttt{Deposit}$(0,0)@3$       \\\hline
+    $4$       & \texttt{Deposit}$(10)@4$      & \texttt{Deposit}$(10,1)@4$      \\\hline
+    $5$       &                           & \texttt{Deposit}$(0,0)@5$       \\\hline
+\end{tabular}
+\caption{Preprocessing by adding an attribute {\em real} to each event type.}
+\label{fig:preprocessing-example}
+\end{figure}
+
+\section{Datalog$_{\mathbb{Z}}$ Generation of Aggregation Events}
+\label{section:aggregation-datalog-program}
+
+In this section,
+we present Datalog$_{\mathbb{Z}}$ programs \cite{dantsin2001complexity}
+to generate aggregation events.
+This variant of Datalog allows integer constants and arithmetic expressions in the head and body of rules.
+For consistency with our language,
+we use the same ``@'' syntax for the event's timestamps.
+We provide programs for
+{\sc max} for sliding, tumbling,
+start-triggered, and end-triggered windows;
+%and start- and end-triggered window,
+{\sc count} for sliding windows,
+and
+{\sc sum} for sliding windows.
+The other functions and window types are handled
+with similar programs.
+This provides a means of early violation detection
+for rules with aggregation functions,
+by rewriting rules with aggregation as Datalog$_{\mathbb{Z}}$ programs
+and using these programs to generate aggregation events,
+then applying the algorithms in the previous chapter without modification.
+
+The structure of the Datalog$_{\mathbb{Z}}$ program
+is consistent across the different
+types of windows:
+some event \texttt{incX}
+with an ``accumulator'' attribute
+stores the partial result of the aggregation function
+over the partial window,
+up to the current timestamp.
+To compute \texttt{incX},
+some rules initialize \texttt{incX}
+with the first source event's value,
+then other rules propagate \texttt{incX}
+with \texttt{incX} from the previous timestamp
+and the current source event's value.
+Finally,
+a rule reports \texttt{resultX}
+when the window is complete.
+In these programs,
+we simplify the presentation
+by removing the non-aggregated attributes
+from the source ({\tt Src}) events,
+and use {\tt V} for the target attribute.
+
+\subsection{Sliding window with {\sc max} function}
+\label{sec:sliding-max-datalog-program}
+
+Let \texttt{Src} be the source event and $L+1$
+the sliding window size for a rule
+with the {\sc max} function,
+i.e., the rule has the form of Fig.\:\ref{fig:sliding-max-rule}.
+
+\begin{figure}[h!]
+\begin{tabular}{ll}
+\texttt{resultSlidingMax}$(\mbox{\sc max}(a),s)@(s+L) \leftarrow$   & $\textsc{Over}\ \mbox{\sc sliding}(s,s+L)$\\
+                                                                    & $\textsc{From}\ \mbox{\tt Src}(a)@x$
+\end{tabular}
+\caption{Rule with the {\sc max} function and a sliding window of size $L+1$.}
+\label{fig:sliding-max-rule}
+\end{figure}
+
+An internal event \texttt{resultSlidingMax}
+is generated for each window,
+with attributes {\em value} (the maximum value),
+{\em start} and {\em end} (of the window), and {\em time}
+(when the result is produced)
+for each window $[$\mbox{\em start},
+\mbox{\em end}$]$ of length $L+1$.
+To compute \texttt{resultSlidingMax} incrementally,
+we use an internal event \texttt{incSlidingMax} with attributes
+{\em accumulator}, {\em start}, {\em end}, and {\em stop},
+where {\em accumulator}
+holds the maximum value seen from {\em start} to {\em stop},
+and {\em end} attribute is the target window's last timestamp,
+i.e., when the result should be reported.
+The Datalog$_{\mathbb{Z}}$ program (Fig.\:\ref{fig:sliding-max-program})
+initializes \texttt{incSlidingMax} at each timestamp $T$
+with the start of a sliding window.
+The source event's value is stored in the accumulator
+(of $-\infty$ if the source event is not real),
+and $T{+}L$ as the window end.
+At each timestamp $T$ that is not greater than the window end,
+if the source event at $T$ is real,
+the accumulator's value at $T$
+is compared with the source event's value at $T{+}1$.
+Otherwise, the accumulator is passed along.
+At the window's end,
+the accumulator is reported with \texttt{resultSlidingMax}.
+
+\begin{figure}[h!]
+\begin{mdframed}[leftmargin=0pt,rightmargin=0mm]
+\begin{small}
+\begin{tabular}{ll}
+\multicolumn{2}{l}{Initialize \texttt{incSlidingMax}}\\
+\texttt{incSlidingMax}$(V, T, T{+}L)@T$ & $\leftarrow \mbox{\tt Src}(V,1)@T$\\
+\texttt{incSlidingMax}$(-\infty, T, T{+}L)@T$ & $\leftarrow \mbox{\tt Src}(V,0)@T$\\
+& \\
+\multicolumn{2}{l}{Propagate \texttt{incSlidingMax}}\\
+\texttt{incSlidingMax}$(V, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incSlidingMax}$(A, S, E)@T ,\  \mbox{\tt Src}(V,1)@(T{+}1) ,\  (A{<}   V),\ (T{+}1 {\leq} E)$\\
+\texttt{incSlidingMax}$(A, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incSlidingMax}$(A, S, E)@T ,\  \mbox{\tt Src}(V,1)@(T{+}1) ,\  (A{\geq}V),\ (T{+}1 {\leq} E)$\\
+\texttt{incSlidingMax}$(A, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incSlidingMax}$(A, S, E)@T ,\  \mbox{\tt Src}(V,0)@(T{+}1),\ (T{+}1 {\leq} E)$\\
+& \\
+\multicolumn{2}{l}{Report \texttt{resultSlidingMax}}\\
+\texttt{resultSlidingMax}$(A, S)@E$ & $\leftarrow$ \texttt{incSlidingMax}$(A, S, E)@T,\ (T{=}E)$\\
+\end{tabular}
+\end{small}
+\end{mdframed}
+\caption{Datalog$_{\mathbb{Z}}$ program for {\sc max} and a sliding window $[S,E]$ of size $L$}
+    \label{fig:sliding-max-program}
+\end{figure}
+
+The results of evaluating the Datalog$_{\mathbb{Z}}$ program
+in Fig.\:\ref{fig:sliding-max-example}
+with a window size $5$ is shown in Fig.\:\ref{fig:sliding-max-example}.
+The source events are shown in the first column.
+The second column shows the \texttt{incSlidingMax} events
+for the first window $[1,5]$.
+The third column shows the \texttt{incSlidingMax} events
+for the second window $[2,6]$.
+The fourth column shows the \texttt{resultSlidingMax} event
+for the first window $[1,5]$,
+which appears when the source event at timestamp $5$ is processed,
+as well as for the second window $[2,6]$.
+
+\begin{figure}[h!]
+\centering
+\bgroup
+\hspace*{-1cm}
+\def\arraystretch{0.9}
+\begin{small}
+\begin{tabular}{|c|l|l|l|l|c|}\hline
+    time & Source events              & \multicolumn{2}{|c|}{\texttt{incSlidingMax} events}                                                  & \texttt{resultSlidingMax} events              \\\hline
+    1    & {\tt Src}(0,0)@1 \tikzmark{a13}  & \tikzmark{a23}\texttt{incSlidingMax}$(-\infty,1)@1$  &                                          &                                \\\hline
+    2    & {\tt Src}(5,1)@2 \tikzmark{b13}          & \tikzmark{b23}\texttt{incSlidingMax}$(5,1,5)@2$  & \texttt{incSlidingMax}$(5,2,6)@2$                   &                               \\\hline
+    3    & {\tt Src}(0,0)@3 \tikzmark{c13}  & \tikzmark{c23}\texttt{incSlidingMax}$(5,1,5)@3$  & \texttt{incSlidingMax}$(5,2,6)@3$                  &                               \\\hline
+    4    & {\tt Src}(0,0)@4 \tikzmark{d13}  & \tikzmark{d23}\texttt{incSlidingMax}$(5,1,5)@4$  & \texttt{incSlidingMax}$(5,2,6)@4$                 &                               \\\hline
+    5    & {\tt Src}(15,1)@5 \tikzmark{e13}         & \tikzmark{e23}\texttt{incSlidingMax}$(15,1,5)@5$ & \texttt{incSlidingMax}$(15,2,6)@5$               & \tikzmark{e33}\texttt{resultSlidingMax}$(15,1)@5$\\\hline
+    6    & {\tt Src}(0,0)@6                 &                                   & \texttt{incSlidingMax}$(15,2,6)@6$ \tikzmark{f23}& \tikzmark{f33} \texttt{resultSlidingMax}$(15,2)@6$\\\hline
+\end{tabular}
+\end{small}
+\egroup
+\caption{Evaluating the sliding, {\sc max} program for window $[S,E]$ of size $5$}
+\label{fig:sliding-max-example}
+\end{figure}
+
+\subsection{Tumbling window with {\sc max} function}
+
+Let \texttt{Src} be the source event and $L+1$ the tumbling window size,
+i.e., the rule has the form of Fig.\:\ref{fig:tumbling-max-rule}.
+
+\begin{figure}[h!]
+\begin{tabular}{ll}
+\texttt{resultTumblingMax}$(\textsc{max}(a),s)@(s+L) \leftarrow$    & $\textsc{Over}\ \mbox{\sc tumbling}(s,s+L)$\\
+                                                                        & $\textsc{From}\ \mbox{\tt Src}(a)@x$
+\end{tabular}\\
+\caption{Rule for tumbling window with size $L{+}1$ and {\sc max} function}
+\label{fig:tumbling-max-rule}
+\end{figure}
+
+To compute the corresponding
+internal event \texttt{resultTumblingMax} incrementally,
+we use an internal event \texttt{incTumblingMax}
+with the same attributes as \texttt{incSlidingMax}.
+We use a Datalog$_{\mathbb{Z}}$ program (Fig.\:\ref{fig:tumbling-max-program})
+to generate
+\texttt{incTumblingMax} events,
+which only differs from that for the sliding window
+in that
+when an window is initialized,
+the next window is initialized
+starting $L$ timestamps later
+rather than at the next timestamp.
+
+\begin{figure}[h!]
+\begin{mdframed}[leftmargin=0pt,rightmargin=0mm]
+\begin{small}
+\begin{tabular}{ll}
+\multicolumn{2}{l}{Initialize \texttt{incTumblingMax}}\\
+\texttt{incTumblingMax}$(V, 0, L)@0$ & $\leftarrow\mbox{\tt Src}(V,1)@0$\\
+\texttt{incTumblingMax}$(-\infty, 0, L)@0$ & $\leftarrow \mbox{\tt Src}(V,0)@0$\\
+\texttt{incTumblingMax}$(V, T{+}1, T{+}1{+}L)@T$ & $\leftarrow$ \texttt{incTumblingMax}$(A, S, E)@T,\ (E{=}T),\mbox{\tt \mbox{\tt Src}}(V,1)@(T{+}1)$\\
+\texttt{incTumblingMax}$(-\infty, T{+}1, T{+}1{+}L)@T$ & $\leftarrow$ \texttt{incTumblingMax}$(A, S, E)@T,\ (E{=}T),\ \mbox{\tt Src}(V,0)@(T{+}1)$\\
+& \\
+\multicolumn{2}{l}{Propagate \texttt{incTumblingMax}}\\
+\texttt{incTumblingMax}$(V, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incTumblingMax}$(A, S, E)@T ,\mbox{\tt Src}(V)@(T{+}1) ,(A{<}V),(T{+}1 {\leq} E)$\\
+\texttt{incTumblingMax}$(A, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incTumblingMax}$(A, S, E)@T ,\mbox{\tt Src}(V)@(T{+}1) ,(A{\geq}V),(T{+}1 {\leq} E)$\\
+& \\
+\multicolumn{2}{l}{Report \texttt{resultTumblingMax}}\\
+\texttt{resultTumblingMax}$(A, S)@E$ & $\leftarrow$ \texttt{incTumblingMax}$(A, S, E)@T,\ (T{=}E)$\\
+\end{tabular}
+\end{small}
+\end{mdframed}
+\caption{Datalog$_{\mathbb{Z}}$ program for {\sc max} function on tumbling window $[S,E]$ of size $L$}
+\label{fig:tumbling-max-program}
+\end{figure}
+
+\subsection{Start-and end-triggered window for {\sc max} function}
+
+For a start- and end-triggered window $[s,e]$
+with the {\sc max} function,
+let \texttt{Src} be the source event,
+\texttt{Start} the start-trigger event,
+and \texttt{End} the end-trigger event,
+i.e., the rule has the form of Fig.\:\ref{fig:start-end-max-rule}.
+
+\begin{figure}[h!]
+\begin{tabular}{ll}
+$\mbox{\tt resultStartEndMax}(\mbox{\sc max}(a),s)@e \leftarrow$ & $\textsc{Over}(\texttt{Start}@s,\texttt{End}@e)$\\
+                           & $\textsc{From}\ \mbox{\tt Src}(a)@x$\\
+\end{tabular}
+\caption{Rule with the {\sc max} function, start- and end-triggered window $[s,e]$}
+\label{fig:start-end-max-rule}
+\end{figure}
+
+We use a Datalog$_{\mathbb{Z}}$ program (Fig.\:\ref{fig:start-end-max-program})
+to generate \texttt{incStartEndMax} events as follows:
+Whenever a start trigger event is observed,
+an \texttt{incStartEndMax} event is initialized
+using the start trigger event's timestamp $T$ as the window start,
+placing the source event's value in the {\em accumulator}.
+Data in \texttt{incStartEndMax} at a timestamp $T$ is propagated
+to the next timestamp $T{+}1$ using the source event at timestamp $T{+}1$.
+To do this, if the source event is real,
+the accumulator is compared with the value of the source event
+at timestamp $T{+}1$ and the larger is passed along.
+If the source event is not real,
+the accumulator is passed along.
+We report \texttt{resultStartEndMax} when {\sc End} event arrives using
+the larger of the accumulator from the previous timestamp's \texttt{incStartEndMax}
+and the source event's value.
+
+\begin{figure}[h!]
+\begin{mdframed}[leftmargin=0pt,rightmargin=0mm]
+\begin{small}
+\begin{tabular}{ll}
+\multicolumn{2}{l}{Initialize \texttt{incStartEndMax}}\\
+\texttt{incStartEndMax}$(V, T)@T$ & $\leftarrow \mbox{\tt Src}(V,1)@T,\ \texttt{Start}@T$\\
+\texttt{incStartEndMax}$(-\infty, T)@T$ & $\leftarrow \mbox{\tt Src}(V,0)@T,\ \texttt{Start}@T$\\
+& \\
+\multicolumn{2}{l}{Propagate \texttt{incStartEndMax}}\\
+\texttt{incStartEndMax}$(V, S)@(T{+}1)$ & $\leftarrow$ \texttt{incStartEndMax}$(A, S)@T ,\  \mbox{\tt Src}(V,1)@(T{+}1) ,\  (A {<} V)$\\
+\texttt{incStartEndMax}$(A, S)@(T{+}1)$ & $\leftarrow$ \texttt{incStartEndMax}$(A, S)@T ,\  \mbox{\tt Src}(V,1)@(T{+}1) ,\  (A {\geq} V)$\\
+\texttt{incStartEndMax}$(A, S)@(T{+}1)$ & $\leftarrow$ \texttt{incStartEndMax}$(A, S)@T ,\  \mbox{\tt Src}(V,0)@(T{+}1)$\\
+& \\
+\multicolumn{2}{l}{Report \texttt{resultStartEndMax}}\\
+\texttt{resultStartEndMax}$(A, S)@E$ & $\leftarrow$ \texttt{incStartEndMax}$(A, S)@T,\ \texttt{End}@T$\\
+\end{tabular}
+\end{small}
+\end{mdframed}
+\caption{Datalog$_{\mathbb{Z}}$ program for \texttt{incStartEndMax} and \texttt{resultStartEndMax} events}
+ \label{fig:start-end-max-program}
+\end{figure}
+
+\begin{comment}
+Example rule and evaluation for start- and end-triggered window with {\sc max} function\\
+
+\begin{tabular}{ll}
+$r_1:\ resultStartEndMax(max(a),s)@e \leftarrow$  & $\textsc{Over}(\texttt{Start}@s, \texttt{ End}@e)$\\
+                                    & $\textsc{From}\ \mbox{\tt Src}(a)@x$\\\\
+\end{tabular}
+
+\bgroup
+\def\arraystretch{1.5}
+ \setlength{\tabcolsep}{.5ex}
+\hspace{-1.2cm}
+\begin{tabular}{|c|c|c|c|c|c|c|}\hline
+    time & {\tt Start}/{\sc End} events & \mbox{\tt Src} + preprocessing   & \multicolumn{2}{|c|}{$incStartEndMax$}                    & $resultStartEndMax$  \\\hline
+    0    &                              &   \mbox{\tt Src}(0,0)@0          &                           &                               & \\\hline
+    1    & {\tt Start}@1                &   \mbox{\tt Src}(3,1)@1          & $incStartEndMax(3,1)@1$  &                                & \\\hline
+    2    &                              &   \mbox{\tt Src}(5,1)@2          & $incStartEndMax(5,1)@2$  &                                & \\\hline
+    3    & {\tt Start}@3                &   \mbox{\tt Src}(0,0)@3          & $incStartEndMax(5,1)@3$  & $incStartEndMax(-\infty,3)@3$  & \\\hline
+    4    &                              &   \mbox{\tt Src}(2,1)@4          & $incStartEndMax(5,1)@4$  & $incStartEndMax(2,3)@4$        & \\\hline
+    5    &                              &   \mbox{\tt Src}(0,0)@5          & $incStartEndMax(5,1)@5$  & $incStartEndMax(2,3)@5$        & \\\hline
+    6    & {\sc End}@6                  &   \mbox{\tt Src}(2,1)@6          & $incStartEndMax(5,1)@6$  & $incStartEndMax(2,3)@6$        & $resultStartEndMax(5,1)@6$   \\
+        &                              &                       &                          &                                & $resultStartEndMax(2,3)@6$   \\\hline  
+\end{tabular}
+\egroup
+\end{comment}
+
+\subsection{Sliding window with {\sc sum} function}
+
+Let \texttt{Src} be the source event and $L+1$ the window size for a sliding rule
+with the {\sc sum} function,
+i.e., the rule has the form of Fig.\:\ref{fig:sliding-sum-rule}.
+
+\begin{figure}[h!]
+\begin{tabular}{ll}
+$\mbox{\tt resultSlidingSum}(\mbox{\sc sum}(a),s)@(s+L) \leftarrow$    & $\textsc{Over}\ \mbox{\sc sliding}(s,s+L)$\\
+                                                                        & $\textsc{From}\ \mbox{\tt Src}(a)@x$
+\end{tabular}
+\caption{Rule for sliding window with {\sc sum} function}
+\label{fig:sliding-sum-rule}
+\end{figure}
+
+To compute \texttt{resultSlidingSum} incrementally,
+we use an internal event \texttt{incSlidingSum}
+with attributes {\em accumulator},
+{\em start},
+{\em end},
+and {\em stop}.
+We use a Datalog$_{\mathbb{Z}}$ program (Fig.\:\ref{fig:sliding-sum-program})
+to generate \texttt{incSlidingSum} events as follows:
+each timestamp is the start of a sliding window
+so for each source event at timestamp $T$,
+an \texttt{incSlidingSum} event is initialized
+using a source event's timestamp as the window start,
+the source event's value in the accumulator,
+and $T{+}L$ as the window end.
+Data in \texttt{incSlidingSum} at a timestamp $T$ is propagated
+to the next timestamp $T{+}1$ using the source event at timestamp $T{+}1$.
+To do this, the accumulator is added with the value of the source event
+at timestamp $T{+}1$.
+The propagation only happens if the next timestamp is no greater than the window end.
+When the source timestamp is equal to the window end,
+the value in the accumulator is reported with \texttt{resultSlidingSum}.
+
+\begin{figure}[h!]
+\begin{mdframed}[leftmargin=0pt,rightmargin=0mm]
+\begin{small}
+\begin{tabular}{ll}
+\multicolumn{2}{l}{Initialize \texttt{incSlidingSum}}\\
+\texttt{incSlidingSum}$(V, T, T{+}L)@T$ & $\leftarrow \mbox{\tt Src}(V,1)@T$\\
+\texttt{incSlidingSum}$(0, T, T{+}L)@T$ & $\leftarrow \mbox{\tt Src}(V,0)@T$\\
+& \\
+\multicolumn{2}{l}{Propagate \texttt{incSlidingSum}}\\
+\texttt{incSlidingSum}$(A{+}V, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incSlidingSum}$(A, S, E)@T ,\  \mbox{\tt Src}(V,1)@(T{+}1),\ (T{+}1{\leq}E)$\\
+\texttt{incSlidingSum}$(A, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incSlidingSum}$(A, S, E)@T ,\  \mbox{\tt Src}(V,0)@(T{+}1),\ (T{+}1{\leq}E)$\\
+& \\
+\multicolumn{2}{l}{Report \texttt{resultSlidingSum}}\\
+\texttt{resultSlidingSum}$(A, S)@E$ & $\leftarrow$ \texttt{incSlidingSum}$(A, S, E)@T ,\  (T=E)$\\
+\end{tabular}
+\end{small}
+\end{mdframed}
+\caption{Datalog$_{\mathbb{Z}}$ Program \texttt{incSlidingSum} and \texttt{resultSlidingSum}}
+    \label{fig:sliding-sum-program}
+\end{figure}
+
+\subsection{The Datalog$_{\mathbb{Z}}$ Programs Compute Aggregation Events}
+
+Given the above Datalog$_{\mathbb{Z}}$ programs,
+we argue they compute the aggregation events for their respective rules.
+This is done by showing that the program's incremental
+computations correctly compute the corresponding aggregation function over the appropriate window and
+that the result is reported at the correct time.
+
+\begin{thm}\label{thm:aggregation-Datalog-program}
+For each aggregation rule $r$,
+there is a Datalog$_{\mathbb{Z}}$ program that generates
+the aggregation events for $r$.
+\end{thm}
+
+\begin{proof}
+We use the above programs as templates
+and 
+show that each program generates the aggregation events
+for a window of size $L$.
+We do this by induction on the value of $l$.
+
+\smallskip
+
+{\em Base case:} $L=1$, i.e., the window is a single timestamp.
+For the {\sc max} function,
+observe that \texttt{incSlidingMax} is initialized with the source event's value
+(or a negative infinity if the source event is not present),
+for the window with start $T$ and end $T$.
+Because the window is a single timestamp,
+the end timestamp is equal to the start timestamp.
+During propagation,
+the accumulator is kept the same if the source event is not present,
+i.e., $\mbox{\tt Src}(*,0)$.
+If the source event is real,
+i.e., $\mbox{\tt Src}(*,1)$,
+the accumulator is changed to the source event's value
+if and only if the source event's value is greater than the accumulator,
+e.g., $A{<}V$,
+otherwise the accumulator is kept the same.
+A similar argument holds for {\sc min}.
+
+For {\sc count},
+\texttt{incSlidingCount} is initialized with $1$ if the source event is present.
+Otherwise, it is initialized with $0$.
+In the propagate rules,
+the accumulator is updated with $A+1$
+if and only if the source event is present.
+Otherwise, the accumulator is kept the same.
+A similar argument holds for {\sc sum}
+and {\sc countu}.
+
+\smallskip
+
+{\em Inductive step:} $L>1$.
+For {\sc max},
+we assume that the program generates the aggregation events
+for a window of size $L{-}1$.
+This is only possible if
+\texttt{incSlidingMax} holds the maximum value
+of the first $L{-}1$ source events of the window.
+The propagation rule compares the latest source
+event in in the window with the value in the accumulator.
+If the source event is greater than the accumulator,
+then the accumulator is updated with the source event's value.
+Otherwise, the accumulator is not updated.
+A similar argument holds for {\sc min}.
+
+For {\sc count},
+we assume that the program generates the aggregation events
+for a window of size $L{-}1$.
+This is only possible if
+\texttt{incSlidingCount} holds the count
+of the first $L{-}1$ source events of the window.
+The propagation rule increments the accumulator
+if the latest source event in the window is not a placeholder.
+Otherwise, the accumulator keeps the same value.
+A similar argument holds for {\sc sum} and {\sc countu}.
+\end{proof}
+
+\section{Chasing Rules with Aggregation}
+\label{section:chasing-rules-with-aggregation}
+
+In this section, we describe how to apply the chase
+directly to rules with aggregation.
+We present techniques
+to extend the algorithms of the previous sections
+with aggregation functions,
+which requires reasoning about
+arithmetic functions applied to a numeric domain
+and time windows that include future events.
+First, we describe when to generate
+``expected'' source events to fill an open time window.
+Then, we rewrite aggregation functions as Presburger arithmetic (PA) constraints on a given window of source events.
+Finally, we include these constraints
+in the satisfiability test that detects violations.
+These techniques, along with the algorithms
+from the previous chapter, is sufficient
+for early violation detection of acyclic sets of rules
+with aggregation.
+
+\subsection{Assignments and Expected Events for Rules with Aggregation}
+
+The fundamental problem of violation detection
+remains to match body assignments with head assignments,
+though assignment creation may now use 
+values derived from aggregation functions
+applied to a window of source events.
+We illustrate this with a running example,
+using the same assignment
+data structures
+$\BODY/_r$, $\HEAD/_r$, and $\EXT_r$ for each rule $r$
+from the previous chapter.
+
+\begin{figure}[ht]
+  \centering
+  \begin{tabular}{|c|c|c|}
+    \hline
+    {timestamp} & \mbox{Alice}'s events & \mbox{Bob}'s events \\
+    \hline
+    1 & \mbox{\tt Deposit}(\mbox{Alice},\, 9)@1    & \mbox{\tt Deposit}(\mbox{Bob},\, 3)@1   \\
+      \hline
+    2 & \mbox{\tt Deposit}(\mbox{Alice},\, 6)@2    & \mbox{\tt Deposit}(\mbox{Bob},\, 5)@2  \\
+      & \mbox{\tt Approve}(\mbox{Alice},\, 20)@2     &                                      \\
+    \hline
+    \end{tabular}
+\caption{An example enactment $\eta$ for two users}
+  \label{fig:example-stream-eta-1}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \begin{tabular}{lcl}
+    $r_1: \mbox{\tt SumDep}(u,a'=\mbox{\sc sum}(a),s)@(s+3)$, $a'\leq 20$ & $\leftarrow$ & {\sc tumbling}$(s,s+3)$                  \\
+                                                                          &              & {\sc from} \mbox{\tt Deposit}$(u,a)@z$   \\
+    $r_2: \mbox{\tt MaxDep}(u,b'=\mbox{\sc max}(b),s)@(s+3)$, $b'\geq 10$ & $\leftarrow$ & {\sc tumbling}(s,s+3)                    \\
+                                                                          &              & {\sc from} \mbox{\tt Deposit}$(u,b)@z$   \\
+    $r_3: \mbox{Approve}(u,c)@(x-1)$                                  & $\leftarrow$ & {\em SumDep}$(u,c)@x, c \geq 18$         \\
+    \end{tabular}
+    \caption{Three rules, two with aggregation}
+  \label{fig:aggregation-rules-3}
+\end{figure}
+
+\begin{examp}\label{examp:assignments}
+Consider the enactment $\eta$ in Figure\:\ref{fig:example-stream-eta-1}.
+and the rules in Figure \ref{fig:aggregation-rules-3}.
+Rule $r_1$ aggregates the total amount of deposits
+per three-day period
+and requires this total to be under $\$20$.
+Rule $r_2$ aggregates the maximum deposit amount per three-day period
+and require this maximum to be at least $\$10$.
+Rule $r_3$ requires that users' three-day deposit totals are approved
+when the total is at least $\$18$.
+  
+For these rules,
+{\sf Update} creates assignments for
+variables $u$, $a'$, $s$, $a$, and $z$ in $r_1$,
+to $v$, $b'$, $t$, $b$, and $z$ in $r_2$,
+and 
+to $u$, $c$, and $x$ in $r_3$,
+by matching event instances with event atoms.
+From the event $\mbox{\tt Deposit}(\mbox{Alice},\, 9)@1$
+and the body event atom $\mbox{\tt Deposit}(u,a)@z$,
+the partial assignment $\alpha_1 = \{u \mapsto \mbox{Alice}, a \mapsto 9, z \mapsto 1\}$ is created,
+which is Row 1 of the table in Fig.\:\ref{fig:BodyTable-r1}
+From event $\mbox{\tt Deposit}(\mbox{Alice},\, 6)@2$
+and the same event atom,
+we create the partial assignment $\alpha_2 = \{u \mapsto \mbox{Alice}, a \mapsto 6, z \mapsto 2\}$
+(Row 2).
+Fig.\:\ref{fig:BodyTable-r1}
+shows some assignments in $\BODY/_{r_0}(\eta)$ at time $2$.
+\end{examp}
+
+\begin{figure}[ht]
+\centering
+\begin{tabular}{|l|l|l|l|l|l|l|}
+\multicolumn{7}{c}{\BODY/$_{r_1}(\eta)$}\\
+\hline
+id          & $u$            & $a$  & $z$    & {constraints}   & {match?}   & {chased?}\\
+\hline\hline
+$\mu_1$  & $\mbox{Alice}$   & $9$  & $1$     & \An{-}       & {\em no} & {\em no}\\
+\hline
+$\mu_2$  & $\mbox{Alice}$   & $6$  & $2$    & \An{-}        & {\em no} & {\em no}\\
+\hline
+$\mu_3$  & $\mbox{Bob  }$   & $3$  & $1$    & \An{-}        & {\em no} & {\em no}\\
+\hline
+$\mu_4$  & $\mbox{Bob  }$   & $5$  & $2$    & \An{-}        & {\em no} & {\em no}\\
+\hline
+\end{tabular}
+\caption{The $\BODY/_r$ table for $r_1$ and $\eta$ at time $2$}
+\label{fig:BodyTable-r1}
+\end{figure}
+
+Now, we describe how ``expected'' events are added to the enactment
+through a chase process.
+This is similar to the chase
+in the previous chapter,
+but in this setting,
+more expected events may be created,
+one event for each future source event in the corresponding window.
+That is, when the window is ``open''
+with respect to the current time,
+i.e., its start timestamp is in the past or present
+and its end timestamp is in the future,
+one expected source event (with marked nulls) are added to the enactment
+for each of the open window's future timestamps.
+Then, the relevant aggregation function
+is applied to the source events' values,
+creating an aggregation event.
+The expected source events have marked nulls for their data values,
+so the aggregation function may be applied to both known values and marked nulls.
+Example\:\ref{examp:expected} illustrates
+extending a window with expected source events,
+then generating an aggregation event with a rule.
+
+\begin{figure}[ht]
+  \centering
+  \begin{tikzpicture}[node distance=1.0cm,>=stealth',bend angle=45,auto]
+    \begin{small}
+  % Events
+  \node[rectangle, rounded corners, draw, text width=3.0cm, align=center, minimum height=0.5cm]                   (event1) {\mbox{\tt Deposit}$(\mbox{Alice},9)@1$};
+  \node[rectangle, rounded corners, draw, text width=3.0cm, align=center, minimum height=0.5cm, right=of event1] (event2) {\mbox{\tt Deposit}$(\mbox{Alice}, 6)@2$};
+  \node[rectangle, rounded corners, draw, text width=3.0cm, align=center, minimum height=0.5cm, right=of event2] (event3) {\mbox{\tt Deposit}$(\mbox{Alice}, a_3)@3$};
+  
+  \node[rectangle, rounded corners, draw, text width=3.0cm, align=center, below=of event1, minimum height=0.5cm, yshift=0.8cm] (bevent1) {\mbox{\tt Deposit}$(\mbox{Bob},3)@1$};
+  \node[rectangle, rounded corners, draw, text width=3.0cm, align=center, minimum height=0.5cm, right=of bevent1]  (bevent2) {\mbox{\tt Deposit}$(\mbox{Bob}, 5)@2$};
+  \node[rectangle, rounded corners, draw, text width=3.0cm, align=center, minimum height=0.5cm, right=of bevent2] (bevent3) {\mbox{\tt Deposit}$(\mbox{Bob}, b_3)@3$};
+  
+  % Arrows for chain of events
+  \draw[-] (event1.east) to [out=0,in=180] (event2.west);
+  \draw[-] (event2.east) to [out=0,in=180] (event3.west);
+
+  % Arrows for chain of events
+  \draw[-] (bevent1.east) to [out=0,in=180] (bevent2.west);
+  \draw[-] (bevent2.east) to [out=0,in=180] (bevent3.west);
+  
+  % % Tumbling Windows
+  % \node[rectangle, draw, text width=9.8cm, minimum height=0.5cm, below=of bevent2, xshift=-0.0cm, yshift=0.5cm] (tindow1) {{\sc tumbling}$(1,3)$};
+  % \node[rectangle, draw, text width=9.8cm, minimum height=0.5cm, below=of bevent3, xshift=-0.0cm, yshift=0cm] (twindow2) {{\sc tumbling}$(2,5)$};
+  
+  % Box and text for expected events
+  \draw[dashed] ($(event3.north west)+(-0.2,0.2)$)  rectangle ($(bevent3.south east)+(0.2,-0.2)$);
+  \node[text width=5.5cm, align=left, above of=event3, xshift=0.25cm, yshift=-0.2cm] (text) {Expected events with marked nulls};
+
+  % Box and text for events
+  % \draw[dashed] ($(event1.north west)+(-0.2,0.2)$)  rectangle ($(bevent2.south east)+(0.2,-0.2)$);
+  % \node[text width=2.5cm, align=left, above of=event1, xshift=0.25cm, yshift=-0.2cm] (text) {Enactment $\eta$};
+    \end{small}
+  \end{tikzpicture}
+\caption{Adding expected source events to an open window $(1,3)$}
+\label{fig:example-stream-expected}
+\end{figure}
+  
+\begin{examp}\label{examp:expected}
+Continuing with the enactment in Example\:\ref{examp:assignments},
+at time $2$,
+the window $(1,4)$ is open for aggregation rules $r_1$ and $r_2$.
+We add expected {\tt Deposit} events
+for Alice and Bob at time $3$ with null values $a_3$ and $b_3$, resp.,
+this is shown in Fig.\:\ref{fig:example-stream-expected}.
+Given values
+for all source events in the window $(1,4)$ for $r_1$ and $r_2$,
+$r_1$ yields the body assignment $\alpha_a$
+in Fig.\:\ref{fig:complete-body-assignments-r1}.
+This produces the head assignment
+$\beta_a = \{s \mapsto 1, u \mapsto Alice, a'\mapsto a'_a\}$
+with the constraints $a'_a=\mbox{\sc sum}(9,6,a_3)$ and $a'_a \leq 20$
+in Fig.\:\ref{fig:complete-head-assignments-r1}.
+and the expected event $\mbox{\tt SumDep}(Alice, a'_a)@3$.
+Rewriting {\sc sum} in PA,
+we have the constraint
+$(a'_a=9+6+a_3) \land (a'_a \leq 20)$.
+For Bob, we have similar body assignment $\alpha_a$ and head assignment $\beta_a$.
+
+% ASSIGNMENTS FOR R1
+\begin{figure}[ht]
+  \centering
+  \begin{small}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+id           & $u$              & $s$  & constraints & {match?} & {chased?} \\
+\hline\hline
+$\alpha_a$   & $\mbox{Alice}$   & $1$  & \An{-}      & \An{no} & \An{no} \\
+\hline
+$\alpha_b$   & $\mbox{Bob}$     & $1$  & \An{-}      & \An{no} & \An{no} \\
+\hline
+\end{tabular}
+\end{small}
+\caption{Complete assignments in $\BODY/$ for $r_1$ and $\eta$ at time $2$}
+\label{fig:complete-body-assignments-r1}
+
+\begin{small}
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+id        & $u$             & $a'$  & $s$  & constraints \\
+\hline\hline
+$\beta_a$ & $\mbox{Alice}$  & $a'_a$ & $1$  & $(a'_a = 9 + 6 + 3) \land (a'_a \leq 20)$ \\
+\hline
+$\beta_b$  & $\mbox{Bob}$    & $a'_b$ & $1$  & $(a'_b = 6 + 5 + 5) \land (a'_b \leq 20)$ \\
+\hline
+\end{tabular}
+\end{small}
+\caption{Complete assignments in $\HEAD/$ for $r_1$ and $\eta$ at time $2$}
+\label{fig:complete-head-assignments-r1}
+\end{figure}
+
+For the body assignment $\gamma_a$ for $r_2$,
+we get the head assignment $\delta_a = \{s \mapsto 1, u \mapsto Alice, b'\mapsto b'_a\}$
+and the expected event $\mbox{\tt MaxDep}(Alice, b'_a)@3$
+Rewriting {\sc max} in PA,
+we obtain that $\delta_a$ has constraint
+$((b'_a \geq 9) \land (b'_a \geq 6) \land (b'_a \geq a_3))
+\land ((b'_a=9) \lor (b'_a=6) \lor (b'_a=a_3)) \land (b'_a \geq 10)$.
+For Bob, we have similar head assignments $\gamma_b$ and $\delta_b$.
+This leads to the $\BODY/_{r_2}(\eta)$
+and
+$\HEAD/_{r_2}(\eta)$
+entries in Figures~\ref{fig:complete-body-assignments-r2}
+and
+\ref{fig:complete-head-assignments-r2}
+at time $2$.
+\end{examp}
+
+% ASSIGNMENTS FOR R2
+\begin{figure}[ht]
+  \centering
+  \begin{small}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+id           & $u$              & $s$  & {constraints}  & {match?} & {chased?} \\
+\hline\hline
+$\gamma_a$   & $\mbox{Alice}$   & $1$  & \An{-}       & \An{no} & \An{no} \\
+\hline
+$\gamma_b$   & $\mbox{Bob}$     & $1$  & \An{-}       & \An{no} & \An{no} \\
+\hline
+\end{tabular}
+\end{small}
+\caption{Complete assignments in $\BODY/$ for $r_2$ and $\eta$ at time $2$}
+\label{fig:complete-body-assignments-r2}
+
+\begin{small}
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+id        & $u$             & $b'$   & $s$  & {constraints}  \\
+\hline\hline
+$\delta_a$   & $\mbox{Alice}$  & $b'_a$  & $1$  & $((b'_a \geq 9) \land (b'_a \geq 6) \land (b'_a \geq a_3))
+\land ((b'_a=9) \lor (b'_b=6) \lor (b'_a=a_3)) \land (b'_a \geq 10)$ \\
+\hline
+$\delta_b$   & $\mbox{Bob}$    & $b'_b$  & $1$  & $((b'_b \geq 3) \land (b'_b \geq 5) \land (b'_b \geq b_3))
+\land ((b'_b=3) \lor (b'_b=5) \lor (b'_b=b_3)) \land (b'_b \geq 10)$ \\
+\hline
+\end{tabular}
+\end{small}
+\caption{Complete assignments in $\HEAD/_r$ table for $r_2$ and $\eta$ at time $2$}
+\label{fig:complete-head-assignments-r2}
+\end{figure}
+
+\subsection{Rewriting Aggregation Atoms}
+
+When an open window includes expected source events,
+the aggregation function's result depends their unknown values.
+These unknown values are represented by marked nulls,
+and even if their exact values are unknown,
+the marked nulls may be constrained by the rule's gap atoms or the chase process,
+leading to violations.
+To reason with these constraints,
+we rewrite each aggregation atom over a given window in Presburger arithmetic
+in the chase step.
+We illustate this rewriting,
+then
+state that this rewriting preserves the semantics of the aggregation function
+in Lemma\:\ref{lemma:aggregation-rewriting}.
+
+\begin{examp}\label{examp:rewriting}
+  Continuing the running example,
+  after introducing the expected event \mbox{\tt Deposit}$(\mbox{Alice})(a_3)@3$,
+  the corresponding body assignment is chased to produce
+  the aggregation event \mbox{\tt SumDep}$(\mbox{Alice})(a'_a)@3$
+  with constraint $(a'_a=9+6+a_3) \land (a'_a \leq 20)$.
+  This generates the complete assignment
+  $\omega_1=\{u\mapsto \mbox{Alice}, x\mapsto 3\}$ for the body of $r_3$,
+  where $a_3$ in the \mbox{\tt Deposit} event may be $12$.
+  We chase $r_3$ with $\omega_3$,
+  propagating the assumption that $a_3=12$,
+  to produce the head assignment
+  $\tau_1=\{u\mapsto \mbox{Alice}, x\mapsto 3\}$
+  and 
+  an expected event $\mbox{\tt Approve}(\mbox{Alice}, c_a)@3$,
+  along with constraints
+  $(a'_a=9+6+a_3) \land (a'_a \leq 20) \land (a_3 = 12) \land (c_a = a'_a)$.
+  
+  For Bob's events, the same process for a complete assignment $\omega_2$
+  produces the head assignment
+  $\tau_2=\{u\mapsto \mbox{Bob}, x\mapsto 3\}$
+  and
+  an expected event $\mbox{\tt Approve}(\mbox{Bob}, c_b)@3$,
+  along with constraints
+  $(b'_b = 3 + 5 + b_3) \land (b'_b \leq 20) \land (b_3 = 12) \land (c_b = a'_b)$.
+\end{examp}
+
+% ASSIGNMENTS FOR R3
+\begin{figure}[ht]
+  \centering
+  \begin{small}
+  \begin{tabular}{|c|c|c|c|c|c|}
+  \hline
+  id          & $u$            & $s$    & {constraints} & {matched} & {chased} \\
+  \hline\hline
+  $\omega_a$  & $\mbox{Alice}$ & $3$     & $c_a=a'_a$ & \An{no} & \An{no} \\
+  \hline
+  $\omega_b$  & $\mbox{Bob}$   & $3$     & $c_b=a'_b$ & \An{no} & \An{no} \\
+  \hline
+\end{tabular}
+\end{small}
+  \caption{Complete assignment in $\BODY/_r$ table for $r_3$ and $\eta$ at time $2$}
+  \label{fig:complete-body-assignments-r3}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \begin{small}
+  \begin{tabular}{|c|c|c|c|c|}
+  \hline
+  id          & $u$             & $c$    & $s$ & {constraints}  \\
+  \hline\hline
+  $\tau_a$  & $\mbox{Alice}$    & $c_a$  & $1$ & $(a'_a = 9 + 6 + a_3) \land (a'_a \leq 20) \land (c_a = a'_a)$ \\
+  \hline
+  $\tau_b$  & $\mbox{Bob}$      & $c_b$  & $1$ & $(a'_b = 3 + 5 + b_3) \land (a'_b \leq 20) \land (c_b = a'_b)$ \\
+  \hline
+\end{tabular}
+\end{small}
+  \caption{Complete assignment in $\HEAD/_r$ table for $r_3$ and $\eta$ at time $2$}
+  \label{fig:complete-head-assignments-r3}
+\end{figure}
+
+Now we describe the rewriting of aggregation atoms.
+We assume that the aggregation atom $a$ has a window $W$ of $L$ source events.
+We define a function {\sf Rewrite}$(W, a)$ (Fig\:\ref{fig:agg-rewriting})
+that rewrites $a$ in PA.
+Lemma\:\ref{lemma:aggregation-rewriting} states that {\sf Rewrite}$(W, a)$
+is equivalent to $a$ with respect to the window $W$.
+
+\begin{lemma}\label{lemma:aggregation-rewriting}
+Let $W=\{
+\mbox{\tt Src}(a_1, r_1)@t_1$, $\mbox{\tt Src}(a_2, t_2)@t_2$,
+$\dots$, $\mbox{\tt Src}(a_L, r_L)@t_{L}\}$
+be a window of $L$ source events,
+where $a_i$ is the value of the aggregation attribute in the $i$-th source event
+and $r_i$ is the value of the {\em real} attribute in the $i$-th source event. 
+Let $a$ be an aggregation atom with a window $W$.
+Then, the aggregation function on $W$ yielding $a$ is equivalent to {\sf Rewrite}$(a, W)$.
+\end{lemma}
+
+\begin{figure}[h!]
+\centering
+\begin{tabular}{lcl}
+{\sc fun}$(a,w)$      & & {\sf Rewrite}($a$, $W$) \\
+$\mbox{\sc sum}(a,W)$ & $\equiv$ & $(a=a_1 + a_2 + \dots + a_{L})$ \\
+$\mbox{\sc max}(b,W)$ & $\equiv$ & $(\displaystyle{\bigvee}_{1 \leq i \leq L} a_i = b) \land (\displaystyle{\bigwedge}_{1 \leq i \leq L} a_i \leq a)$ \\
+$\mbox{\sc min}(c,W)$ & $\equiv$ & $(\displaystyle{\bigvee}_{1 \leq i \leq L} a_i = c) \land (\displaystyle{\bigwedge}_{1 \leq i \leq L} a_i \geq c)$ \\
+% $\mbox{\sc count}(d,s,e)$ & $\equiv$ & $(0 \leq d \leq L) \land \displaystyle{\bigvee}_{A \subseteq \{1,\dots,L\},|A|=d} (\displaystyle{\bigwedge}_{j\in A} a_j > 0)$\\
+% $\mbox{\sc countu}(d,s,e)$ & $\equiv$ & $(0 \leq d \leq L) \land \displaystyle{\bigvee}_{A \subseteq \{1,\dots,L\},|A|=d} (\displaystyle{\bigwedge}_{j\in A} a_j \geq 0) \land (\displaystyle{\bigwedge}_{i,j\in A, i\neq j} a_i \leq a_j) \land (\displaystyle{\bigwedge}_{j\not\in A} \exists i \in A. a_i = a_j \lor a_j = 0)$\\
+$\mbox{\sc count}(d,W)$ & $\equiv$ & $(0 \leq d \leq L) \land \displaystyle{\bigvee}_{A \subseteq \{1,\dots,L\},|A|=d} ((\displaystyle{\bigwedge}_{j\in A} r_j {\neq} 0) \land (\displaystyle{\bigwedge}_{j\not\in A,1\leq j\leq L} r_j {=} 0))$\\
+$\mbox{\sc countu}(e,s,e)$ & $\equiv$ & $(0 \leq u \leq L) \land \displaystyle{\bigvee}_{A \subseteq \{1,\dots,L\},|A|=u} (\displaystyle{\bigwedge}_{j\in A} (r_j {\neq} 0 \land \displaystyle{\bigwedge}_{k\in A, k \neq j}(a_j {\neq a_k}))$\\
+                      &          & \hspace{1.5cm} $\land (\displaystyle{\bigwedge}_{j\in \{1,\dots,L\}-A} (r_j {=} 0) \lor \exists\ l\in A. a_j=a_l))$\\
+\end{tabular}
+\caption{{\sf Rewrite} for each aggregation function using Presburger arithmetic}
+\label{fig:agg-rewriting}
+\end{figure}
+
+\begin{proof}
+In Fig~\ref{fig:agg-rewriting},
+the {\sc sum} function is rewritten as the sum of the source event's values.
+The {\sc max} and {\sc min} functions are rewritten as a disjunction of the source event's values,
+requiring that the maximum or minimum value is
+(1) greater than or equal to (resp., less than or equal to) all source values
+and (2) equal to some source value.
+The {\sc count} function creates a disjunction over all subsets $A$ of size $d$ of the source events,
+requiring that $A$'s source values are not placeholders and all other source values are placeholders,
+i.e., their {\em real} values are equal to zero;
+the disjunction is true when $d$ is equal to the number of source events in $A$.
+The {\sc countu} function operates in the same manner as {\sc count},
+but requires that the source values for non-placeholder events in $A$ are unique.
+\end{proof}
+
+Now we describe how the rewriting of aggregation rules
+is used along with the extension of open windows
+to rewrite aggregation atoms
+during the chase as {\sf Chase-Agg}
+(Algorithm\:\ref{alg:chase-agg}).
+The algorithm for aggregation rules differs from that
+for non-aggregation rules
+by Lines 4 through 10.
+Line 4 identifies when a window defined by an aggregation rule is open and incomplete,
+meaning not all of its source events have been received.
+Line 5 adds future source events for the window
+to the set of expected events
+with fresh, marked nulls for data values.
+Lines 6, 7, and 8 compute a complete head assignment from these events
+for any applicable rule and window,
+rewriting the aggregation function in the rule head as a set of PA constraints.
+Line 9 adds the aggregation event to the set of expected events.
+This new assignment and the aggregation events are then used to update the assignments
+in the assigment database.
+
+\begin{algorithm}[t]
+  \caption{{\sf Chase-Agg}($\Delta$, $D_{R}(\eta)$)}
+  \label{alg:chase-agg}
+  \begin{small}%\vspace{-2.5mm}
+  \begin{flushleft}
+    \algorithmicrequire{
+      A batch $\Delta$ of events for $\eta$, rules $R$,\\\hspace*{.42in}
+      the assignment database for $R$\\
+  {\bf Output:} the chased assignment database $D_{R}{\eta}$ for $\eta$}
+  \end{flushleft}%\vspace*{-3.5mm}
+  \begin{algorithmic}[1]
+    \If{no $\BODY/_{r}(\eta)$ contains no unmatched, complete body assignments for any $r$}
+    {{\bf return} $D_{R}(\eta)$}
+    \EndIf{}
+    \While{the chase is not finished}
+      \State{Let $\mbox{\sl ExpectedEvents}:=\emptyset$}
+      \If{$\tmsp_\Delta$ is in $W$ for some window $W$ for $r\in R$ and $W$ is not complete}
+      \State{Add the source events that complete $W$ to $\mbox{\sl ExpectedEvents}$}
+      \For{each aggregation rule $r$}
+        \For{each body assignment $\mu$ corresponding to window $W$ of $r$}
+          \State{Create an assignment $\mu'$ for $\mbox{\em head}(r)$ with the window with constraints {\sc Rewrite}($W$, $a$)}
+          \State{Add all atoms in $\mu'(\mbox{\em head}(r))$ to $\mbox{\sl ExpectedEvents}$}
+          \EndFor
+          \EndFor
+          \EndIf{}
+        \For{each complete, unchased body assignment
+          $\mu\,{\in}\, \BODY/_{r}(\eta)$
+          with no ground matching head assignment for a rule $r$}
+          \If{$r$ is not an aggregation rule}
+            \State{Create an assignment $\mu'$ for $\mbox{\em head}(r)$ with fresh, marked nulls for each existential variable}
+          \EndIf{}
+        \State{Instantiate $\mbox{\em head}(r)$ with $\mu'$}
+        \State{Add all atoms to $\mbox{\sl ExpectedEvents}$}
+        \State{Change the {\it Chased} column of $\mu$ to ``yes''}
+        \EndFor
+      \If{{\sl ExpectedEvents} is empty}
+        \State{exit the while loop}
+      \EndIf{}
+      \State{Update all $\BODY/_r(\eta), \HEAD/_r(\eta)$ tables
+      using {\sf Update} and {\sl ExpectedEvents} as the batch of new events}
+      \State{Update all $\EXT_r(\eta)$ tables
+      using {\sf Update-E} and {\sl ExpectedEvents} as the batch of new events}
+    \EndWhile{}
+    \State{{\bf return} $D_{R}(\eta)$}
+  \end{algorithmic}
+  \end{small}
+\end{algorithm}  
+
+The chase may not terminate
+for some sets of rules and enactments,
+as marked nulls may create more marked nulls
+when rules are applied,
+and this may continue indefinitely.
+This poses a problem
+for using the chase as a subroutine in a violation detection algorithm.
+To ensure the chase terminates,
+we place a sufficient condition on the rules
+such that
+a marked null created by chasing the rules
+cannot create another marked null
+for the same attribute and event type.
+This restriction is a sufficient condition
+for termination of the chase
+for tuple-generating dependencies ({Theorem 3.9 in \cite{fagin2005data}}).
+Accordingly,
+we consider only acyclic sets of rules with aggregation,
+with the following definition of acyclic,
+adapted from \cite{fagin2005data},
+that extends the definition of acyclic
+used in Chapter\:\ref{chapter:early-violation-detection}.
+
+Let $R$ be a set of rules:
+the graph $G_{R}=(V,E)$ is defined as follows.
+\begin{itemize}
+\item
+  $V$ is a set of vertices $(P,a)$
+  where $P$ is an event name and
+  $a$ is an attribute of $P$.
+  We call each $(P,a)$ a position.
+  For an aggregation atom $P$
+  with a term, e.g., $u' = \mbox{\sc sum}(u)$,
+  we add the vertex $(P,u)$ and the vertex $(P,u')$ to $V$.
+\item
+  $E$ is a set of edges where
+  for every rule $\psi(\bar{x},\bar{y})\leftarrow\phi(\bar{x})$ in $R$,
+  we call each $x$ in $\bar{x}$ a propagated variable.
+  For each propagated variable $x$,
+  for each occurrence of $x$ in $\phi(\bar{x})$ in position $(P,a)$,
+  do two things:
+  \begin{enumerate}
+  \item
+    for each occurrence of $x$ in $\psi(\bar{x},\bar{y})$ at position $(Q,b)$,
+    add an edge from $(P,a)$ to $(Q,b)$, and
+  \item
+    for each existentially quantified variable $y$ in $\psi(\bar{x},\bar{y})$, 
+    for each occurrence of $y$ in $\psi(\bar{x},\bar{y})$ at position $(S,c)$,
+    add a {\it special edge} from $(P,a)$ to $(S,c)$.
+  \end{enumerate}
+\end{itemize}
+
+We say $R$ is {\it acyclic}
+if $G_{R}$ has no cycle containing a special edge.
+Note again that this is a different definition of acyclic
+than the one used in Chapter\:\ref{chapter:ltl-translation},
+but an generalization of the definition
+used in Chapter\:\ref{chapter:early-violation-detection}.
+
+\subsection{Detecting Violations via Satisfiability Testing}
+
+The assignment database
+for an enactment
+can determine
+if an acyclic set of rules
+is violated using
+the {\sf Build} algorithm
+from the previous chapter (Algorithm~\ref{alg:build}).
+The algorithm
+creates a PA constraint
+that is satisfiable if and only if 
+the enactment has a violation.
+We demonstrate how this satisfiability test
+works in the presence of PA formula for the running example.
+
+\begin{examp}\label{ex:aggregation-build-sat}
+Applying {\sf Build} to the assignment database
+for \mbox{Alice} at time $2$
+uses assignments $\alpha_a$ for $r_1$
+and $\gamma_a$ for $r_2$.
+a constraint $\Theta$ is initialized to $\mbox{\em true}$.
+Then, from $\alpha_a$ and its match $\beta_a$,
+$\mbox{\em true}\rightarrow (a'_a = 9 + 6 + a_3) \land (a'_a \leq 20)$ is added to $\Theta$.
+From $\gamma_a$ and its match $\delta_a$,
+$\mbox{\em true}\rightarrow$ $((b'_a \geq 9) \land (b'_a \geq 6) \land (b'_a \geq a_3))$ 
+$\land ((b'_a=9) \lor (b'_b=6) \lor (b'_a=a_3)) \land (b'_a \geq 10)$.
+From $\omega_a$, there are no complete, ground, matching head assignments, so we add
+$\neg((a'_a = 9 + 6 + a_3) \land (a'_a \leq 20) \land (c_a = 12))$.
+
+This formula $\Theta$ is not satisfiable;
+$\Theta$ contains
+$9 + 6 + a_3 = a'_a \leq 20$,
+which implies $a_3 \leq 5$,
+yet $\Theta$ also contains
+$a_3 \geq 10$,
+leaving no possible value for $a_3$.
+Accordingly,
+any {\tt Deposit} event in $\eta$ for Alice at time $3$
+will create a violation at time $3$,
+and this is known at time $2$. 
+Then, Alice's events in $\eta$ is reported as a violation at time $2$.
+
+Applying {\sf Build} to the assignment database
+for \mbox{Bob} at time $3$,
+a constraint $\Theta$ is initialized to $\mbox{\em true}$.
+From $\alpha_b$ and its only match $\beta_b$,
+we have $\mbox{\em true}\rightarrow (a'_b = 3 + 5 + b_3) \land (a'_b \leq 20)$.
+From $\gamma_b$ and its only match $\delta_b$,
+we have $\mbox{\em true}\rightarrow$ $((b'_b \geq 3) \land (b'_b \geq 5) \land (b'_b \geq b_3))
+\land ((b'_b=3) \lor (b'_b=5) \lor (b'_b=b_3)) \land (b'_b \geq 10)$.
+From $\omega_b$, there are no complete, ground, matching head assignments, so we add
+$\neg((a'_b = 3 + 5 + b_3) \land (a'_b \leq 20) \land (b_3 = 12))$.
+Now $\Theta$ is satisfiable, with the assignment $b_3 = 11$, $a'_b = 20$, $b'_b=11$, and $c_b = 11$,
+so there is no violation of $R$ at time $2$ for \mbox{Bob}'s events.
+\end{examp}
+
+The {\sf Build} algorithm (Algorithm\:\ref{alg:chase-agg})
+starts with the assignment database $D_{R}(\eta)$ 
+and a time instant $t_0$ (the current time),
+Line 1 initializes $\Theta$ as $true$,
+as the enactment $\eta$ is not violating by default.
+Then, for each complete body assignment $\mu$ in $D_{R}(\eta)$
+with constraints $c_\mu$,
+there are two cases of the extension table for $\mu$.
+In the first case (Line 3),
+$\mu$ has no complete, matching head assignment.
+Recall that $c_\mu$ are assumptions made about marked nulls
+that create $\mu$ if true.
+Accordingly,
+$\mu$ will not be a violation only if they are not necessary,
+i.e., their negation is satisfiable.
+We test for this case by adding $\neg c_\mu$ to $\Theta$ in Line 4.
+In the second case of the extension table for $\mu$ (Line 5),
+$\mu$ has one or more complete matching head assignments.
+Let $(\mu,\mu_i,c_i)$, $\dots$, $(\mu,\mu_n,c_n)$
+be the rows matching $\mu$ in the relevant extension table.
+Note that $\mu$ is a violation
+every $c_i$ is unsatisfiable when $c_\mu$ is true.
+Thus, $c_\mu\rightarrow(c_1 \lor\dots\lor c_n)$
+is added to $\Theta$ on Line 6.
+Finally, Lines 7 and 8 add the requirement
+that unresolved timestamp variables and marked nulls time instants
+are greater than the current time.
+Generalizing this example,
+we state a theorem that indicates how the assignment database
+detects violations.
+
+\begin{thm}\label{thm:agg-sat}
+    Let $R$ be an acyclic set of rules with aggregation
+    and
+    $\eta$ an enactment.
+    Then,
+    {\sf Build}$(D_R(\eta))$ is unsatisfiable
+    if and only if $\eta$ violates $R$.
+  \end{thm}
+
+Theorem\:\ref{thm:agg-sat} follows from Theorem\:\ref{thm:III}
+in the previous chapter
+and Lemma\,\ref{lemma:aggregation-rewriting},
+which indicates that the rewriting of aggregation atoms
+by {\sf Rewrite}
+preserves preserves constraints
+on the atoms' free variables
+imposed by the aggregation functions and time window.
+Then,
+the satisfiability of the output of {\sf Build}
+faithfully indicates the presence of a violation.
+This satisfiability test remains decidable with PA formulas \cite{stansifer1984presburger}.
+Accordingly,
+from Theorem \ref{thm:agg-sat},
+the output of {\sf Build} is unsatisfiable
+exactly
+when the enactment violates the set of rules.
+
+We have shown that
+for rules with aggregation,
+an assignment database is maintained
+with the {\sf Update}, {\sf Update-E}, and {\sf Chase-Agg} algorithms
+and violations can be detected by
+applying {\sf Build} to the assignment database,
+and reporting the satisfiability of {\sf Build}'s output.
+Thus,
+violations of an acyclic set of rules with aggreagtion 
+are detected at the earliest possible time. 
+
+\section{Related Work}
+\label{section:aggregation-related-work}
+
+Prior research on reasoning about aggregation
+in stream processing
+includes Datalog languages with aggregation,
+SQL-like stream queries,
+as well as temporal logics with aggregation, especially combined with first-order logic.
+% Our contribution is distinguished
+% by the relaxation of the monotonicity requirement,
+% where our aggregation 
+
+Some Datalog-like languages includes aggregation,
+often with restrictions on the monotonicity of event creation.
+whereas we do not require monotonicity of aggregation functions,
+because the generation of aggregation events 
+is fixed by each window
+and the workflow assumption.
+Reference \cite{shkapsky2015optimizing}
+uses Datalog with monotonic aggregation functions.
+Streamlog \cite{zaniolo2012logical} uses Datalog with negation and arithmetic,
+but only for ``strictly sequential'' rules,
+i.e., the timestamp of head is greater every timestamp in the body.
+Reference \cite{mohapatra2014incremental} uses Datalog with negation and sets allowed as terms,
+but it is unclear how the {\em max} and {\em min} functions are computed;
+in Section\:\ref{section:aggregation-datalog-program},
+we show how these aggregation functions can be computed within Datalog.
+Dedalus \cite{alvaro2010dedalus} uses Datalog with negation, aggregation,
+and construct for disjunction called choice,
+but does not allow different time variables in the body of a rule,
+limiting the expressiveness of the language,
+and does not provide algorithms for rule evaluation.
+Finally, \cite{bellomarini2021monotonic} uses Datalog with LTL operators and aggregation functions,
+with algorithms for rule evaluation.
+The main difference with our work is that
+we compare explicit time variables,
+with each other through inequalities,
+while the LTL operators in \cite{bellomarini2021monotonic} make time implicit
+and difficult to compare due to scoping issues.
+
+Also relevant are SQL-like stream queries,
+which are continually reevaluated
+with incoming data \cite{arasu2006cql, arasu2016stream}.
+These queries use SQL-like syntax,
+with special syntax for windows,
+though their focus is query evaluation,
+i.e., the efficient computation of query results
+over the existing enactment,
+rather than early violation detection,
+which requires reasoning about the future of the enactment.
+
+% mohapatra2014incremental
+
+% Other works on temporal logics with aggregation
+% include the Ticker system \cite{??},
+% the Lars language \cite{??},
+% and FO-LTL with aggregation \cite{basin2015monitoring},
+% and the work of Harald Beck (Answer Update for Rule-based Stream Reasoning) \cite{??}.
+
+\section{Chapter Summary}
+\label{section:aggregation-summary}
+
+This chapter presents a syntax and semantics for time windows and
+aggregation functions in rules;
+this increases the expressiveness of rules,
+as it allows constraints
+on aggregate, quantitative values
+over time and multiple events.
+Then, we enable early violation detection for rules with aggregation in two ways:
+by rewriting them into Datalog$_{\mathbb{Z}}$ programs,
+which allows for generating aggregation events
+within the Datalog framework,
+and by extending the {\sf Build} algorithm to handle aggregation functions by rewriting them in Presburger arithmetic.
+This shows that early violation detection remains possible
+for rules with aggregation.

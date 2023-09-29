@@ -1,0 +1,185 @@
+% \chapter{Appendix}{\label{appendix:a}}
+% \begin{section}{Datalog Program for Aggregation Events}
+
+% \subsection{Moving window with {\sc count} function}
+
+% Let \texttt{Src} be the source event and $L+1$ the window size for a moving rule
+% with the {\sc count} function,
+% i.e., the rule has the form of Fig.\:\ref{fig:moving-count-rule}.
+
+% \begin{figure}[h!]
+% \begin{tabular}{ll}
+% \texttt{resultMovingCount}$(\mbox{\sc count}(a),s)@(s+L) \leftarrow$    & $\textsc{Over}\ {\sc Moving}(s,s+L)$\\
+%                                                                             & $\textsc{From}\ \mbox{\tt Src}(a)@x$
+% \end{tabular}\\
+% \caption{Rule for moving window with {\sc count} function}
+% \label{fig:moving-count-rule}
+% \end{figure}
+
+% To compute \texttt{resultMovingCount} incrementally,
+% we use an internal event \texttt{incMovingCount}
+% with attributes {\em accumulator},
+% {\em start},
+% {\em end},
+% and {\em stop}.
+% The {\em start} attribute is the window's first timestamp.
+% The {\em accumulator} attribute
+% holds the count seen from {\em start} to the timestamp {\em stop},
+% where {\em stop} is the latest timestamp for the window seen thus far
+% and used as each \texttt{incMovingCount} event's timestamp.
+% The {\em end} attribute is the window's last timestamp
+% and indicates when the result should be reported.\\
+
+% We use a Datalog program (Fig.\:\ref{fig:moving-count-infty})
+% to generate \texttt{incMovingCount} events as follows:
+% each timestamp is the start of a moving window
+% so for each source event at timestamp $T$,
+% an \texttt{incMovingCount} event is initialized
+% using a source event's timestamp as the window start,
+% a $1$ in the accumulator if a ``genuine'' source event is present,
+% i.e., if the source event value is not $-\infty$,
+% otherwise a $0$,
+% and $T{+}L$ as the window end.
+% Data in \texttt{incMovingCount} at a timestamp $T$ is propagated
+% to the next timestamp $T{+}1$ using the source event at timestamp $T{+}1$.
+% To do this, the accumulator is incremented if the source event is real,
+% and unchanged otherwise.
+% The propagation only happens if the next timestamp is no greater than the window end.
+% When the source timestamp is equal to the window end,
+% the value in the accumulator is reported with \texttt{resultMovingCount}.\\
+
+% \begin{figure}[h!]
+% \begin{mdframed}[leftmargin=0pt,rightmargin=0mm]
+% \begin{small}
+% \begin{tabular}{ll}
+% \multicolumn{2}{l}{Initialize \texttt{incMovingCount}}\\
+% \texttt{incMovingCount}$(0, T, T{+}L)@T$ & $\leftarrow \mbox{\tt Src}(V,0)@T$\\
+% \texttt{incMovingCount}$(1, T, T{+}L)@T$ & $\leftarrow \mbox{\tt Src}(V,1)@T$\\
+% & \\
+% \multicolumn{2}{l}{Propagate \texttt{incMovingCount}}\\
+% \texttt{incMovingCount}$(A, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incMovingCount}$(A, S, E)@T ,\  \mbox{\tt Src}(V,0)@(T{+}1),\ (T{+}1{\leq}E)$\\
+% \texttt{incMovingCount}$(A{+}1, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incMovingCount}$(A, S, E)@T ,\  \mbox{\tt Src}(V,1)@(T{+}1),\ (T{+}1{\leq}E)$\\
+% & \\
+% \multicolumn{2}{l}{Report \texttt{resultMovingCount}}\\
+% \texttt{resultMovingCount}$(A, S, E)@T$ & $\leftarrow$ \texttt{incMovingCount}$(A, S, E)@T ,\  (T=E)$\\
+% \end{tabular}
+% \end{small}
+% \end{mdframed}
+% \caption{Datalog Program \texttt{incMovingCount} and \texttt{resultMovingCount}}
+%     \label{fig:moving-count-infty}
+% \end{figure}
+
+% \subsection{Start-triggered window for {\sc max} function}
+
+% Let \texttt{Src} be the source event,
+% $L$ the window size,
+% and \texttt{Start} a dataless start trigger event
+% for a start-triggered rule with the {\sc max} function,
+% i.e., the rule has the form of Fig.\:\ref{fig:start-trigger-max-rule}.
+
+% \begin{figure}[h!]
+% \begin{tabular}{ll}
+% \texttt{resultStartTriggerMax}$(\mbox{\sc max}(a),s)@(s{+}L) \leftarrow$ & $\textsc{Over}({\tt Start}@s, s+L)$\\
+%                             & $\textsc{From}\ \mbox{\tt Src}(a)@x$\\
+% \end{tabular}
+% \caption{Start-triggered rule with {\sc max} function}
+% \label{fig:start-trigger-max-rule}
+% \end{figure}
+
+% We use a Datalog program (Fig.\:\ref{fig:start-trigger-max-program}) to generate
+% \texttt{incStartTriggerMax} events as follows:
+% Whenever a start trigger event is observed,
+% an \texttt{incStartTriggerMax} event is initialized
+% using the start trigger event's timestamp $T$ as the window start,
+% the source event's value in the {\em accumulator},
+% and $T{+}L$ as the window end.
+% Data in \texttt{incStartTriggerMax} at a timestamp $T$ is propagated to the next timestamp $T{+}1$ using the source event at timestamp $T{+}1$.
+% To do this, if the source event is real,
+% the accumulator is compared with the value of the source event
+% at timestamp $T{+}1$ and the larger is passed along.
+% If the source event is not real,
+% the accumulator is passed along.
+% The propagation only happens if the next timestamp is no greater than the window end.
+% When the source timestamp is equal to the window end,
+% the value in the accumulator is reported with \texttt{reportStartTriggerMax}.\\
+
+% \begin{figure}[h!]
+% \begin{mdframed}[leftmargin=0pt,rightmargin=0mm]
+% \begin{small}
+% \begin{tabular}{ll}
+% \multicolumn{2}{l}{Initialize \texttt{incStartTriggerMax}}\\
+% \texttt{incStartTriggerMax}$(V, T, T{+}L)@T$ & $\leftarrow \mbox{\tt Src}(V,1)@T,\ \texttt{Start}@(T)$\\
+% \texttt{incStartTriggerMax}$(-\infty, T, T{+}L)@T$ & $\leftarrow \mbox{\tt Src}(V,0)@T,\ \texttt{Start}@(T)$\\
+% & \\
+% \multicolumn{2}{l}{Propagate \texttt{incStartTriggerMax}}\\
+% \texttt{incStartTriggerMax}$(V, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incStartTriggerMax}$(A, S, E)@T ,\  \mbox{\tt Src}(V,1)@(T{+}1) ,\  (A{<} V),\ (T{+}1 {\leq} E)$\\
+% \texttt{incStartTriggerMax}$(A, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incStartTriggerMax}$(A, S, E)@T ,\  \mbox{\tt Src}(V,1)@(T{+}1) ,\  (A{\geq}V),\ (T{+}1 {\leq} E)$\\
+% \texttt{incStartTriggerMax}$(A, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incStartTriggerMax}$(A, S, E)@T ,\  \mbox{\tt Src}(V,0)@(T{+}1) ,\ (T{+}1 {\leq} E)$\\
+% & \\
+% \multicolumn{2}{l}{Report \texttt{resultStartTriggerMax}}\\
+% \texttt{resultStartTriggerMax}$(A, S, E)@T$ & $\leftarrow$ \texttt{incStartTriggerMax}$(A, S, E)@T,\ (T{=}E)$\\
+% \end{tabular}
+% \end{small}
+% \end{mdframed}
+% \caption{Datalog Program \texttt{incStartTriggerMax} and \texttt{resultStartTriggerMax}}
+%     \label{fig:start-trigger-max-program}
+% \end{figure}
+
+% \subsection{End-triggered window for {\sc max} function}\label{end-triggered-algorithm}
+
+% Let \texttt{Src} be the source event,
+% $L+1$ the window size,
+% and \texttt{End} a dataless end trigger event
+% for an end-triggered rule with the {\sc max} function,
+% i.e., the rule has the form of Fig.\:\ref{fig:end-trigger-max-rule}.
+
+% \begin{figure}[h!]
+% \begin{tabular}{ll}
+% \texttt{resultEndMax}$(\mbox{\sc max}(a),e-L,e)@e \leftarrow$ & $\textsc{Over}(e-L,\texttt{End}@e)$\\
+%                             & $\textsc{From}\ \mbox{\tt Src}(a)@x$\\
+% \end{tabular}
+% \caption{Rule $r$ with the {\sc max} function, end-triggered window $[e-L,e]$}
+% \label{fig:end-trigger-max-rule}
+% \end{figure}
+
+% We use a Datalog program (Fig.\:\ref{fig:end-trigger-max})
+% to generate \texttt{incEndMax} events as follows:
+% each timestamp is possibly the start of an end-triggered window
+% so for each source event at timestamp $T$,
+% an \texttt{incEndMax} event is initialized
+% using a source event's timestamp as the window start,
+% the source event's value in the accumulator,
+% and $T{+}L$ as the window end.
+% Data in \texttt{incEndMax} at a timestamp $T$ is propagated to the next timestamp $T{+}1$ using the source event at timestamp $T{+}1$.
+% To do this, if the source event is real,
+% the accumulator is compared with the value of the source event
+% at timestamp $T{+}1$ and the larger is passed along.
+% If the source event is not real,
+% the accumulator is passed along.
+% The propagation only happens if the next timestamp is no greater than the window end.
+% We report the value of the accumulator with \texttt{resultEndMax}
+% when window's end stored in \texttt{incEndMax} coincides
+% with an \texttt{End} event.\\
+
+% \begin{figure}[h!]
+% \begin{mdframed}[leftmargin=0pt,rightmargin=0mm]
+% \begin{small}
+% \begin{tabular}{ll}
+% \multicolumn{2}{l}{Initialize \texttt{incEndMax}}\\
+% \texttt{incEndMax}$(V, T, T{+}L)@T$ & $\leftarrow \mbox{\tt Src}(V,1)@T$\\
+% \texttt{incEndMax}$(-\infty, T, T{+}L)@T$ & $\leftarrow \mbox{\tt Src}(V,0)@T$\\
+% & \\
+% \multicolumn{2}{l}{Propagate \texttt{incEndMax}}\\
+% \texttt{incEndMax}$(V, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incEndMax}$(A, S, E)@T ,\  \mbox{\tt Src}(V)@(T{+}1) ,\  (A{<}   V),\ (T{+}1 {\leq} E)$\\
+% \texttt{incEndMax}$(A, S, E)@(T{+}1)$ & $\leftarrow$ \texttt{incEndMax}$(A, S, E)@T ,\  \mbox{\tt Src}(V)@(T{+}1) ,\  (A{\geq}V),\ (T{+}1 {\leq} E)$\\
+% & \\
+% \multicolumn{2}{l}{Report \texttt{resultEndMax}}\\
+% \texttt{resultEndMax}$(A, S, E)@T$ & $\leftarrow$ \texttt{incEndMax}$(A, S, E)@T ,\  (T{=}E),\ \texttt{End}@T$\\
+% \end{tabular}
+% \end{small}
+% \end{mdframed}
+% \caption{Datalog program for \texttt{incEndMax} and \texttt{resultEndMax}}
+%     \label{fig:end-trigger-max}
+% \end{figure}
+
+% \end{section}

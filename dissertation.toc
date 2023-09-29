@@ -1,0 +1,51 @@
+\contentsline {chapter}{Curriculum Vitae}{v}{Doc-Start}%
+\contentsline {chapter}{Abstract}{vi}{Item.8}%
+\contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.1}%
+\contentsline {chapter}{\numberline {2}Preliminaries}{7}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Events and Workflow Enactments}{7}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Rules}{9}{section.2.2}%
+\contentsline {section}{\numberline {2.3}An Opportunity for Early Violation Detection}{12}{section.2.3}%
+\contentsline {chapter}{\numberline {3}Rules without Data}{15}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Monitoring with Finite State Machines}{16}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Dataless Enactments and Linear Temporal Logic}{18}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Recursive Translation of Acyclic Constraints}{21}{section.3.3}%
+\contentsline {section}{\numberline {3.4}All-Order Translation of Singly-Linked Rules}{38}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Related Work}{46}{section.3.5}%
+\contentsline {section}{\numberline {3.6}Chapter Summary}{49}{section.3.6}%
+\contentsline {chapter}{\numberline {4}Rules with Data}{51}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Algorithms for Individual Rules}{52}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Algorithms for an Acyclic Set of Rules}{62}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Optimizations}{72}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Evaluation}{73}{section.4.4}%
+\contentsline {subsection}{\numberline {4.4.1}Generating Logs, Rules, and Experimental Setup}{74}{subsection.4.4.1}%
+\contentsline {subsection}{\numberline {4.4.2}Detection Often Occurs Far Before Enactments End}{78}{subsection.4.4.2}%
+\contentsline {subsection}{\numberline {4.4.3}Detection is Feasible for Medium-scale Applications}{79}{subsection.4.4.3}%
+\contentsline {subsection}{\numberline {4.4.4}Detection Remains Feasible for Complex Sets of Rules}{80}{subsection.4.4.4}%
+\contentsline {section}{\numberline {4.5}Related Work}{82}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Chapter Summary}{84}{section.4.6}%
+\contentsline {chapter}{\numberline {5}Rules with Aggregation}{85}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Time Windows for Aggregation Functions}{86}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Datalog$_{\mathbb {Z}}$ Generation of Aggregation Events}{90}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Sliding window with {\sc max} function}{91}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Tumbling window with {\sc max} function}{93}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}Start-and end-triggered window for {\sc max} function}{93}{subsection.5.2.3}%
+\contentsline {subsection}{\numberline {5.2.4}Sliding window with {\sc sum} function}{95}{subsection.5.2.4}%
+\contentsline {subsection}{\numberline {5.2.5}The Datalog$_{\mathbb {Z}}$ Programs Compute Aggregation Events}{95}{subsection.5.2.5}%
+\contentsline {section}{\numberline {5.3}Chasing Rules with Aggregation}{97}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}Assignments and Expected Events for Rules with Aggregation}{97}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}Rewriting Aggregation Atoms}{100}{subsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.3.3}Detecting Violations via Satisfiability Testing}{105}{subsection.5.3.3}%
+\contentsline {section}{\numberline {5.4}Related Work}{107}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Chapter Summary}{108}{section.5.5}%
+\contentsline {chapter}{\numberline {6}The Impossibility of Early Violation Detection}{109}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Early Violation Detection Solves Finite Satisfiability}{110}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Datalog$^{+}$}{112}{section.6.2}%
+\contentsline {subsection}{\numberline {6.2.1}Turing Machines and the Empty-Tape Halting Problem}{113}{subsection.6.2.1}%
+\contentsline {subsection}{\numberline {6.2.2}Constructing a Set of Datalog$^{+}$ Rules for the Empty-Tape Halting Problem}{114}{subsection.6.2.2}%
+\contentsline {subsection}{\numberline {6.2.3}The Construction is a Reduction}{121}{subsection.6.2.3}%
+\contentsline {section}{\numberline {6.3}Datalog$^{+}$ with One Integer Attribute}{129}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Proof of Theorem \ref {thm:undecidability}}{131}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Related Work}{132}{section.6.5}%
+\contentsline {section}{\numberline {6.6}Chapter Summary}{132}{section.6.6}%
+\contentsline {chapter}{\numberline {7}Conclusion}{134}{chapter.7}%
+\contentsline {chapter}{Bibliography}{136}{chapter*.57}%

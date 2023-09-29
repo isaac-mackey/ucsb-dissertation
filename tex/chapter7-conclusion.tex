@@ -1,0 +1,71 @@
+\chapter{Conclusion}
+\label{chapter:conclusion}
+
+Driven by the demand for 
+efficient and effective monitoring of event streams,
+we investigate
+early violation detection for business rules.
+Enforcing these constraints
+at runtime,
+rather than at design-time,
+allows enables the enforcement
+of business rules in event-based systems,
+while avoiding intractable design-time analysis.
+In this dissertation,
+we show that
+early violation detection for sets of rules is unsolvable in general,
+indicating that more research
+is needed to identify tractable cases.
+We also contribute
+algorithms to solve restricted cases
+of the early violation detection problem,
+relying on techniques from
+business process management, automated reasoning,
+and database systems.
+We study the translation of dataless rules to LTL formulas,
+improving the output size of the best known translation
+for two subclasses of rules.
+We consider the problem for individual rules and
+acyclic sets of rules with data,
+applying a chase process and satisfiability testing,
+then add aggregation functions on time windows to the rule language.
+These techniques are novel in their application to early violation detection, especially in the context of quantitative time constraints
+and incremental monitoring of event streams. 
+
+More work is needed to understand
+violation detection problems.
+This includes
+the study of richer classes of temporal constraints,
+beyond the gap constraints considered in this dissertation.
+Additionally,
+rules lack some features common in natural language and compliance regulations
+that may be useful in modeling real-world constraints,
+e.g.,
+negation for modeling the absence of events
+and
+disjunction for modeling choice or multiple possibilities.
+More work is needed
+to determine how these features affect the complexity of the early violation detection problem.
+
+Also,
+our techniques consider only perfect data 
+and
+whether or not a violation is certain.
+Realistic event streams
+may also contain some noise and uncertainty,
+so reporting violations probabilistically
+and 
+relaxing assumptions about the event stream's quality,
+e.g., allowing out-of-order events,
+deserve further study.
+Finally,
+the undecidability proof suggests that
+the border between solvable and unsolvable problems
+can be made sharper
+with respect to the number and type of event attributes.
+In summary,
+our insights improve
+the understanding of the early violation detection problem
+and may guide the design of rule monitors for event-based systems,
+but more work is needed
+to understand the full range of effective early violation detection.

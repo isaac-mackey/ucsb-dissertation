@@ -1,0 +1,271 @@
+\begin{thebibliography}{10}
+  \expandafter\ifx\csname url\endcsname\relax
+    \def\url#1{\texttt{#1}}\fi
+  \expandafter\ifx\csname urlprefix\endcsname\relax\def\urlprefix{URL }\fi
+  \expandafter\ifx\csname href\endcsname\relax
+    \def\href#1#2{#2} \def\path#1{#1}\fi
+  
+  \bibitem{apte2012us}
+  U.~Apte, U.~Karmarkar, H.~Nath, et~al., The us information economy: Value,
+    employment, industry structure, and trade, Foundations and
+    Trends{\textregistered} in Technology, Information and Operations Management
+    6~(1) (2012) 1--87.
+  
+  \bibitem{BPEL2.0}
+  {Web Services Business Process Execution Language Version 2.0},
+    {\url{http://docs.oasis-open.org/wsbpel/2.0/wsbpel-v2.0.html}} (April 2007).
+  
+  \bibitem{christensen2001web}
+  E.~Christensen, F.~Curbera, G.~Meredith, S.~Weerawarana, et~al., Web services
+    description language (wsdl) 1.1 (2001).
+  
+  \bibitem{richards2006representational}
+  R.~Richards, Representational state transfer (rest), in: Pro PHP XML and web
+    services, Springer, 2006, pp. 633--672.
+  
+  \bibitem{HullSu:sigmodrec05}
+  R.~Hull, J.~Su, Tools for composite web services: {A} short overview, SIGMOD
+    Record 34~(2) (2005) 86--95.
+  
+  \bibitem{su2017data}
+  J.~Su, L.~Wen, J.~Yang, From data-centric business processes to enterprise
+    process frameworks, in: EDOC 2017, IEEE, 2017, pp. 1--9.
+  
+  \bibitem{DBLP:books/daglib/0020812}
+  H.~Garcia{-}Molina, J.~D. Ullman, J.~Widom, Database systems - the complete
+    book {(2.} ed.), Pearson Education, 2009.
+  
+  \bibitem{eid2012business}
+  R.-H. Eid-Sabbagh, R.~Dijkman, M.~Weske, Business process architecture: use and
+    correctness, in: BPM 2012, Springer, 2012, pp. 65--81.
+  
+  \bibitem{liu2011business}
+  R.~Liu, R.~Vacul{\'\i}n, Z.~Shan, A.~Nigam, F.~Wu, Business artifact-centric
+    modeling for real-time performance monitoring, in: BPM 2011, Springer, 2011,
+    pp. 265--280.
+  
+  \bibitem{SBVR}
+  Semantics of business vocabulary and business rules,
+    \url{http://www.omg.org/spec/SBVR/1.0/} (2008).
+  
+  \bibitem{Pesic07:DECLARE}
+  M.~Pesic, H.~Schonenberg, W.~van~der Aalst, {DECLARE: Full} support for
+    loosely-structured processes, in: EDOC 2007, 2007, pp. 287--300.
+  
+  \bibitem{van2009declarative}
+  W.~M. van Der~Aalst, M.~Pesic, H.~Schonenberg, Declarative workflows: Balancing
+    between flexibility and support, Computer Science-Research and Development
+    23~(2) (2009) 99--113.
+  
+  \bibitem{van2006decserflow}
+  W.~M. Van Der~Aalst, M.~Pesic, Decserflow: Towards a truly declarative service
+    flow language, in: International Workshop on Web Services and Formal Methods,
+    Springer, 2006, pp. 1--23.
+  
+  \bibitem{ly2015compliance}
+  L.~T. Ly, F.~M. Maggi, M.~Montali, S.~Rinderle-Ma, W.~M. Van Der~Aalst,
+    Compliance monitoring in business processes: Functionalities, application,
+    and tool-support, Information systems 54 (2015) 209--234.
+  
+  \bibitem{AHV95}
+  S.~Abiteboul, R.~Hull, V.~Vianu, Foundations of Databases, Addison-Wesley,
+    1995.
+  
+  \bibitem{maher1996chasing}
+  M.~J. Maher, D.~Srivastava, Chasing constrained tuple-generating dependencies,
+    in: Proceedings of the fifteenth ACM SIGACT-SIGMOD-SIGART symposium on
+    Principles of database systems, 1996, pp. 128--138.
+  
+  \bibitem{dou2013sound}
+  D.~Dou, S.~Coulondre, A sound and complete chase procedure for constrained
+    tuple-generating dependencies, Journal of Intelligent Information Systems
+    40~(1) (2013) 63--84.
+  
+  \bibitem{vardi1986automata}
+  M.~Y. Vardi, P.~Wolper, An automata-theoretic approach to automatic program
+    verification, in: Proceedings of the First Symposium on Logic in Computer
+    Science, IEEE Computer Society, 1986, pp. 322--331.
+  
+  \bibitem{laroussinie2002temporal}
+  F.~Laroussinie, N.~Markey, P.~Schnoebelen, Temporal logic with forgettable
+    past, in: Logic in Computer Science, IEEE, 2002, pp. 383--392.
+  
+  \bibitem{kamp1968tense}
+  J.~A.~W. Kamp, Tense logic and the theory of linear order, University of
+    California, Los Angeles, 1968.
+  
+  \bibitem{rabinovich2014proof}
+  A.~Rabinovich, A proof of kamp's theorem, Logical Methods in Computer Science
+    10 (2014).
+  
+  \bibitem{du2014timed}
+  Y.~Du, W.~Tan, M.~Zhou, Timed compatibility analysis of web service
+    composition: A modular approach based on petri nets, IEEE Transactions on
+    Automation Science and Engineering 11~(2) (2014) 594--606.
+  
+  \bibitem{BultanSF:IEEEIC}
+  T.~Bultan, J.~Su, X.~Fu, Analyzing conversations of web services, IEEE Internet
+    Computing 18~(10) (2006).
+  
+  \bibitem{krotsiani2017cloud}
+  M.~Krotsiani, C.~Kloukinas, G.~Spanoudakis, Cloud certification process
+    validation using formal methods, in: ICSOC 2017, Springer, 2017, pp. 65--79.
+  
+  \bibitem{bartocci2018introduction}
+  E.~Bartocci, Y.~Falcone, A.~Francalanza, G.~Reger, Introduction to runtime
+    verification, in: Lectures on Runtime Verification, Springer, 2018, pp.
+    1--33.
+
+  \bibitem{zaniolo2012logical}
+  C.~Zaniolo, Logical Foundations of Continuous Query Languages for Data Streams,
+    in: Proceedings of the 2nd International Workshop on Datalog in Academia
+    and Industry, Springer, 2012, pp. 177-189.
+  
+  \bibitem{mahbub2004framework}
+  K.~Mahbub, G.~Spanoudakis, A framework for requirents monitoring of service
+    based systems, in: ICSOC 2004, ACM, 2004, pp. 84--93.
+  
+  \bibitem{baresi2005towards}
+  L.~Baresi, S.~Guinea, Towards dynamic monitoring of ws-bpel processes, in:
+    International Conference on Service-Oriented Computing, Springer, 2005, pp.
+    269--282.
+  
+  \bibitem{fernando2017monitoring}
+  R.~Fernando, R.~Ranchal, B.~Bhargava, P.~Angin, A monitoring approach for
+    policy enforcement in cloud services, in: CLOUD 2017, IEEE, 2017, pp.
+    600--607.
+  
+  \bibitem{pnueli1977temporal}
+  A.~Pnueli, The temporal logic of programs, in: Foundations of Computer Science,
+    1977., 18th Annual Symposium on, IEEE, 1977, pp. 46--57.
+  
+  \bibitem{cimatti2004bounded}
+  A.~Cimatti, M.~Roveri, D.~Sheridan, Bounded verification of past ltl, in:
+    International Conference on Formal Methods in Computer-Aided Design,
+    Springer, 2004, pp. 245--259.
+  
+  \bibitem{lichtenstein1985glory}
+  O.~Lichtenstein, A.~Pnueli, L.~Zuck, The glory of the past, in: Workshop on
+    Logic of Programs, Springer, 1985, pp. 196--218.
+  
+  \bibitem{dantzig1972fourier}
+  G.~B. Dantzig, Fourier-motzkin elimination and its dual, Tech. rep.,
+  Stanford University, Department of Operations Research (1972).
+  
+  \bibitem{gabbay1980temporal}
+  D.~Gabbay, A.~Pnueli, S.~Shelah, J.~Stavi, On the temporal analysis of
+    fairness, in: Proceedings of the 7th ACM SIGPLAN-SIGACT symposium on
+    Principles of programming languages, 1980, pp. 163--173.
+  
+  \bibitem{gabbay1981expressive}
+  D.~M. Gabbay, Expressive functional completeness in tense logic (preliminary
+    report), in: Aspects of philosophical logic, Springer, 1981, pp. 91--117.
+  
+  \bibitem{hodkinson1995expressive}
+  I.~Hodkinson, Expressive completeness of until and since over dedekind complete
+    linear time, Modal logic and process algebra (1995) 171--185.
+  
+  \bibitem{DamaggioDHV:BPM11:verif}
+  E.~Damaggio, A.~Deutsch, R.~Hull, V.~Vianu, Automatic verification of
+    data-centric business processes, in: BPM 2011, 2011, pp. 3--16.
+  
+  \bibitem{CalvanesePODS13}
+  D.~Calvanese, G.~D. Giacomo, M.~Montali, Foundations of data-aware process
+    analysis: {A} database theory perspective, in: Proc. ACM Symp. on Principles
+    of Database Systems (PODS), 2013, pp. 1--12.
+  
+  \bibitem{combi2010towards}
+  C.~Combi, R.~Posenato, Towards temporal controllabilities for workflow
+    schemata, in: TIME 2010, IEEE, 2010, pp. 129--136.
+  
+  \bibitem{kopke2018gsm+}
+  J.~K{\"o}pke, J.~Eder, J.~Su, Gsm+ t: A timed artifact-centric process model,
+    in: 25th International Symposium on Temporal Representation and Reasoning
+    (TIME 2018), Schloss Dagstuhl-Leibniz-Zentrum fuer Informatik, 2018, pp.
+    0--0.
+  
+  \bibitem{maggi2011monitoring}
+  F.~M. Maggi, M.~Montali, M.~Westergaard, W.~M. Van Der~Aalst, Monitoring
+    business constraints with linear temporal logic: An approach based on colored
+    automata, in: International Conference on Business Process Management,
+    Springer, 2011, pp. 132--147.
+  
+  \bibitem{havelund2018efficient}
+  K.~Havelund, D.~Peled, Efficient runtime verification of first-order temporal
+    properties, in: Int. Symp. on Model Checking Software, Springer, 2018, pp.
+    26--47.
+  
+  \bibitem{montali2010declarative}
+  M.~Montali, M.~Pesic, W.~M. v.~d. Aalst, F.~Chesani, P.~Mello, S.~Storari,
+    Declarative specification and verification of service choreographies, ACM
+    Transactions on the Web (TWEB) 4~(1) (2010) 1--62.
+  
+  \bibitem{westergaard2012looking}
+  M.~Westergaard, F.~M. Maggi, Looking into the future, in: OTM Confederated
+    International Conferences" On the Move to Meaningful Internet Systems",
+    Springer, 2012, pp. 250--267.
+  
+  \bibitem{bauer2013propositional}
+  A.~Bauer, J.-C. K{\"u}ster, G.~Vegliach, From propositional to first-order
+    monitoring, in: International Conference on Runtime Verification, Springer,
+    2013, pp. 59--75.
+  
+  \bibitem{li2018mltl}
+  J.~Li, K.~Y. Rozier, Mltl benchmark generation via formula progression, in:
+    International Conference on Runtime Verification, Springer, 2018, pp.
+    426--433.
+  
+  \bibitem{basin2017almost}
+  D.~Basin, B.~N. Bhatt, D.~Traytel, Almost event-rate independent monitoring of
+    metric temporal logic, in: International Conference on Tools and Algorithms
+    for the Construction and Analysis of Systems, Springer, 2017, pp. 94--112.
+  
+  \bibitem{maler2005real}
+  O.~Maler, D.~Nickovic, A.~Pnueli, Real time temporal logic: Past, present,
+    future, in: International Conference on Formal Modeling and Analysis of Timed
+    Systems, Springer, 2005, pp. 2--16.
+  
+  \bibitem{chomicki1995efficient}
+  J.~Chomicki, Efficient checking of temporal integrity constraints using bounded
+    history encoding, ACM Transactions on Database Systems (TODS) 20~(2) (1995)
+    149--186.
+  
+  \bibitem{halle2012runtime}
+  S.~Hall{\'e}, R.~Villemaire, Runtime enforcement of web service message
+    contracts with data, IEEE Transactions on Services Computing 5~(2) (2012)
+    192--206.
+  
+  \bibitem{de2013runtime}
+  R.~De~Masellis, J.~Su, Runtime enforcement of first-order ltl properties on
+    data-aware business processes, in: International Conference on
+    Service-Oriented Computing, Springer, 2013, pp. 54--68.
+  
+  \bibitem{cimatti2020smt}
+  A.~Cimatti, A.~Griggio, E.~Magnago, M.~Roveri, S.~Tonetta, Smt-based
+    satisfiability of first-order ltl with event freezing functions and metric
+    operators, Information and Computation 272 (2020) 104502.
+  
+  \bibitem{calvanese2022verification}
+  D.~Calvanese, G.~De~Giacomo, M.~Montali, F.~Patrizi, Verification and
+    monitoring for first-order ltl with persistence-preserving quantification
+    over finite and infinite traces, in: Proceedings of the 31st International
+    Conference on Artificial Intelligence (IJCAI-ECAI 2022). AAAI Press, 2022,
+    pp. 2553--2560.
+  
+  \bibitem{mackey2022rule}
+  I.~Mackey, J.~Su, A rule-based constraint language for event streams, in: 4th
+    International Workshop on the Resurgence of Datalog in Academia and Industry,
+    2022, pp. 145--150.
+  
+  \bibitem{mackey2022early}
+  I.~Mackey, R.~Chimni, J.~Su, Early detection of temporal constraint violations,
+    in: 29th International Symposium on Temporal Representation and Reasoning
+    (TIME 2022), Schloss Dagstuhl-Leibniz-Zentrum f{\"u}r Informatik, 2022, pp.
+    4:1--4:16.
+  
+  \bibitem{barbon2006run}
+  F.~Barbon, P.~Traverso, M.~Pistore, M.~Trainotti, Run-time monitoring of
+    instances and classes of web service compositions, in: ICWS, IEEE, 2006, pp.
+    63--71.
+  
+  \end{thebibliography}

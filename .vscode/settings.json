@@ -1,0 +1,10 @@
+{
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#471C4B",
+        "titleBar.activeBackground": "#63286A",
+        "titleBar.activeForeground": "#FCF9FD"
+    },
+    "cSpell.words": [
+        "Presburger"
+    ]
+}
